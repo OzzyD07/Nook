@@ -1,0 +1,60 @@
+rules_version = '2';
+
+// The mobile app reads with the signed-in user's credentials and is limited by these rules.
+// The MCP Worker uses a service account, which bypasses rules; it scopes every path to the
+// authenticated uid in code (apps/mcp-server/src/firestore/paths.ts).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      match /cards/{cardId} {
+        allow read: if isOwner(uid);
+
+        // Cards are created and edited by the AI through the Worker. The app may only
+        // undo things: restore a deleted card, or roll back to an earlier version.
+        allow update: if isOwner(uid) && (isUndelete() || isRollback());
+
+        function changed() {
+          return request.resource.data.diff(resource.data).affectedKeys();
+        }
+
+        function isUndelete() {
+          return changed().hasOnly(['deletedAt']) && request.resource.data.deletedAt == null;
+        }
+
+        function isRollback() {
+          let next = request.resource.data;
+          return changed().hasOnly(['previewUi', 'detailUi', 'sources', 'version', 'status', 'statusMessage', 'updatedAt', 'lastUpdatedBy'])
+            && next.version == resource.data.version + 1
+            && next.previewUi is string && next.previewUi.size() <= 8192
+            && next.detailUi is string && next.detailUi.size() <= 49152
+            && next.sources is list && next.sources.size() <= 20
+            && next.updatedAt == request.time
+            && next.lastUpdatedBy.clientId == 'app';
+        }
+      }
+
+      match /cardVersions/{versionId} {
+        allow read: if isOwner(uid);
+        // Rollbacks record the restored content as a new version.
+        allow create: if isOwner(uid)
+          && request.resource.data.createdBy.clientId == 'app'
+          && versionId == request.resource.data.cardId + '_v' + string(request.resource.data.version);
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && request.resource.data.provider == 'app';
+      }
+
+      match /settings/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // users/{uid}/idempotency is server-only: no rule, so clients are denied.
+    }
+  }
+}

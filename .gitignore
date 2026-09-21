@@ -41,3 +41,9 @@ example
 # generated native folders
 /ios
 /android
+
+# secrets
+.env
+.dev.vars
+*service-account*.json
+.wrangler/

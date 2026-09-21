@@ -1,56 +1,42 @@
-# Welcome to your Expo app 👋
+# Nook
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A personal dashboard that your own AI builds. Nook has no AI inside: you tell Claude, ChatGPT or Gemini what you want to see, and it creates and refreshes cards through Nook's MCP server. The app renders those cards natively and keeps them available offline.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+AI host (Claude / ChatGPT / Gemini)
+   │  MCP + OAuth
+   ▼
+Cloudflare Worker ── validates OpenUI, versions, idempotency, audit
+   │  Firestore REST
+   ▼
+Firebase (Auth + Firestore)
+   │  realtime
+   ▼
+Expo app ── native OpenUI renderer, offline cache
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Repository
 
-### Other setup steps
+| Path | What |
+|---|---|
+| `apps/mobile` | Expo (SDK 57) app: dashboard, card detail, settings |
+| `apps/mcp-server` | Cloudflare Worker: remote MCP server, OAuth, Firestore access |
+| `packages/shared` | Card model, tool input schemas, grid packing, stale detection |
+| `packages/openui-library` | OpenUI component libraries (card + detail), validator, AI reference |
+| `firebase` | Firestore security rules and indexes |
+| `docs/SETUP.md` | Firebase, Cloudflare and app setup |
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Cards are [OpenUI Lang](https://www.openui.com) documents limited to a static subset: only whitelisted components with literal arguments. The same validator runs on the Worker before anything is stored and on the device before anything is rendered.
 
-## Learn more
+## Development
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm install            # with OPENUI_TELEMETRY_DISABLED=1 set
+npm test               # vitest: shared, openui, mcp-server
+npm run typecheck
+npm run lint           # expo lint for the app
+npm run web -w nook-mobile
+npm run dev -w @nook/mcp-server
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+See [docs/SETUP.md](docs/SETUP.md) to create the Firebase project, deploy the Worker and connect an AI.

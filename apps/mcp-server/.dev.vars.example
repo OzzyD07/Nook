@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `npm run dev`. Never commit .dev.vars.
+GCP_SA_JSON={"client_email":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","private_key_id":"..."}
+STATE_SIGNING_KEY=generate-a-long-random-string
+ALLOWED_UIDS=
+# Uncomment to use the Firestore emulator instead of the real database.
+# FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
