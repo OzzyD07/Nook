@@ -12,11 +12,20 @@ export interface SlotDef {
 
 export type PropDef = z.ZodType | SlotDef;
 
+export interface CheckIssue {
+  code: 'invalid-prop' | 'duplicate-id';
+  message: string;
+}
+
 export interface ComponentSpec {
   name: string;
   description: string;
   /** Key order is the positional argument order in OpenUI Lang. Never reorder. */
   props: Record<string, PropDef>;
+  /** Stores user input under its `id` prop; ids must be unique within a document. */
+  stateful?: boolean;
+  /** Cross-prop rules that a per-prop schema cannot express. */
+  check?: (props: Record<string, unknown>) => CheckIssue[];
 }
 
 export function slot(
@@ -41,6 +50,7 @@ export function component(
   name: string,
   description: string,
   props: Record<string, PropDef>,
+  options: Pick<ComponentSpec, 'stateful' | 'check'> = {},
 ): ComponentSpec {
-  return { name, description, props };
+  return { name, description, props, ...options };
 }

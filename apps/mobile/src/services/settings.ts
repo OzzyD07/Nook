@@ -1,7 +1,7 @@
 import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { firebase } from '@/lib/firebase';
-import { usePreferences, type ThemePreference } from '@/store/preferences';
+import { usePreferences, type AiApp, type ThemePreference } from '@/store/preferences';
 
 const settingsRef = (uid: string) => doc(firebase().db, 'users', uid, 'settings', 'app');
 
@@ -10,10 +10,10 @@ export function syncSettings(uid: string): () => void {
   return onSnapshot(
     settingsRef(uid),
     (snapshot) => {
-      const theme = snapshot.data()?.theme;
-      if (theme === 'system' || theme === 'light' || theme === 'dark') {
-        usePreferences.getState().setTheme(theme);
-      }
+      const data = snapshot.data();
+      const preferences = usePreferences.getState();
+      if (data?.theme === 'system' || data?.theme === 'light' || data?.theme === 'dark') preferences.setTheme(data.theme);
+      if (data?.aiApp === 'claude' || data?.aiApp === 'chatgpt' || data?.aiApp === 'gemini') preferences.setAiApp(data.aiApp);
     },
     () => undefined,
   );
@@ -22,4 +22,9 @@ export function syncSettings(uid: string): () => void {
 export async function saveTheme(uid: string, theme: ThemePreference): Promise<void> {
   usePreferences.getState().setTheme(theme);
   await setDoc(settingsRef(uid), { theme, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function saveAiApp(uid: string, aiApp: AiApp): Promise<void> {
+  usePreferences.getState().setAiApp(aiApp);
+  await setDoc(settingsRef(uid), { aiApp, updatedAt: serverTimestamp() }, { merge: true });
 }

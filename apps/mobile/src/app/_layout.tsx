@@ -9,6 +9,7 @@ import { Colors } from '@/constants/theme';
 import { useResolvedScheme, useTheme } from '@/hooks/use-theme';
 import { isFirebaseConfigured } from '@/lib/env';
 import { watchAuth } from '@/services/auth';
+import { syncCardState } from '@/services/card-state';
 import { syncCards } from '@/services/cards';
 import { syncSettings } from '@/services/settings';
 import { useSession } from '@/store/session';
@@ -41,9 +42,11 @@ function AppStack() {
   useEffect(() => {
     if (!uid) return;
     const stopCards = syncCards(uid);
+    const stopCardState = syncCardState(uid);
     const stopSettings = syncSettings(uid);
     return () => {
       stopCards();
+      stopCardState();
       stopSettings();
     };
   }, [uid]);

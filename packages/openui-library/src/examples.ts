@@ -24,4 +24,25 @@ facts = KeyValue([{label: "Market cap", value: "$1.26T"}, {label: "All-time high
 
   quoteCard: `root = CardContainer([body], "accent")
 body = Stack([Icon("quote", "md", "accent"), Text("Stay hungry, stay foolish.", "lg", null, "medium"), Caption("Steve Jobs")], "sm")`,
+
+  groceryDetail: `root = Page([list, extra, actions])
+list = Checklist("groceries", [milk, eggs, bread, apples], "This week")
+milk = ChecklistItem("milk", "Milk", "2 liters")
+eggs = ChecklistItem("eggs", "Eggs")
+bread = ChecklistItem("bread", "Whole-grain bread")
+apples = ChecklistItem("apples", "Apples", null, true)
+extra = TextInput("requests", "Anything else to add?", "e.g. coffee beans", true)
+actions = Row([Button("Update the list", "request_refresh"), Button("Ask my AI", "ask_ai", "Suggest three dinners using what is on my grocery list.")], "sm")`,
+
+  weekCard: `root = CardContainer([body])
+body = Stack([Heading("This week", "sm"), WeekStrip([CalendarEvent("2026-09-24", "Dentist", "09:30", "warning"), CalendarEvent("2026-09-26", "Concert", "20:00", "accent")]), Countdown("2026-09-26T20:00:00+03:00", "Concert", "compact")], "sm")`,
+
+  calendarDetail: `root = Page([tabs])
+tabs = Tabs([monthTab, agendaTab])
+monthTab = Tab("Month", [Calendar("2026-09", [dentist, concert, trip], "September")])
+agendaTab = Tab("Agenda", [Countdown("2026-10-02T08:00:00+03:00", "Trip starts in", "large"), Agenda([dentist, concert, trip]), feedback])
+dentist = CalendarEvent("2026-09-24", "Dentist", "09:30", "warning")
+concert = CalendarEvent("2026-09-26", "Concert", "20:00", "accent", "https://example.com/tickets")
+trip = CalendarEvent("2026-10-02", "Trip to Izmir", "All day", "positive")
+feedback = Rating("week-rating", "How was this week?")`,
 } as const;

@@ -1,8 +1,16 @@
-import { HttpsUrlSchema } from '@nook/shared';
+import {
+  CARD_STATE_LIMITS,
+  DateSchema,
+  DateTimeSchema,
+  HttpsUrlSchema,
+  isHttpsUrl,
+  MonthSchema,
+  StateIdSchema,
+} from '@nook/shared';
 import { z } from 'zod';
 
 import { ICON_NAMES } from './icons';
-import { component, slot, type ComponentSpec } from './spec';
+import { component, slot, type CheckIssue, type ComponentSpec } from './spec';
 
 // Shared prop schemas. Everything is a literal: strings, numbers, booleans, enums.
 
@@ -191,6 +199,151 @@ const SourceList = component('SourceList', 'List of cited sources', {
   title: label.optional(),
 });
 
+// Interactive components (detail surface). Stateful ones persist user input under their id;
+// keep ids stable when regenerating a card so the user's input survives.
+
+const stateId = StateIdSchema.describe('Stable id; user input is stored under it. Reuse it when you regenerate the card');
+const elementIds = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.flatMap((child) => {
+        const id = (child as { props?: { id?: unknown } })?.props?.id;
+        return typeof id === 'string' ? [id] : [];
+      })
+    : [];
+const duplicates = (values: string[]) => [...new Set(values.filter((value, i) => values.indexOf(value) !== i))];
+const invalid = (message: string): CheckIssue => ({ code: 'invalid-prop', message });
+
+const ChecklistItem = component('ChecklistItem', 'Row inside a Checklist', {
+  id: stateId,
+  label: text(160),
+  note: text(240).optional(),
+  checked: z.boolean().optional().describe('Initial state until the user changes it'),
+});
+
+const Checklist = component(
+  'Checklist',
+  'List the user can tick off; ticks are saved and visible to you through get_card',
+  {
+    id: stateId,
+    items: slot(['ChecklistItem'], { max: CARD_STATE_LIMITS.maxChecklistItems }),
+    title: label.optional(),
+  },
+  {
+    stateful: true,
+    check: (props) =>
+      duplicates(elementIds(props.items)).map((id) => ({ code: 'duplicate-id', message: `ChecklistItem id "${id}" is used twice` })),
+  },
+);
+
+const TextInput = component(
+  'TextInput',
+  'Free text field the user can fill in (saved)',
+  {
+    id: stateId,
+    label,
+    placeholder: text(120).optional(),
+    multiline: z.boolean().optional(),
+  },
+  { stateful: true },
+);
+
+const Choice = component(
+  'Choice',
+  'Single or multiple choice question (saved)',
+  {
+    id: stateId,
+    label: text(160),
+    options: z.array(text(60)).min(2).max(12),
+    multiple: z.boolean().optional(),
+  },
+  {
+    stateful: true,
+    check: (props) =>
+      duplicates(Array.isArray(props.options) ? props.options.map(String) : []).map((option) => invalid(`option "${option}" is listed twice`)),
+  },
+);
+
+const Rating = component(
+  'Rating',
+  'Star rating the user can set (saved)',
+  {
+    id: stateId,
+    label,
+    max: z.number().int().min(3).max(10).optional().describe('Number of stars, default 5'),
+  },
+  { stateful: true },
+);
+
+const Button = component(
+  'Button',
+  'Action button. open_url opens value (https); copy copies value; request_refresh flags the card for your next ' +
+    'run (visible as refreshRequestedAt); ask_ai opens the user\'s AI app with value as a prepared prompt',
+  {
+    label: text(40),
+    action: z.enum(['open_url', 'copy', 'request_refresh', 'ask_ai']),
+    value: text(1000).optional(),
+    tone: Tone.optional(),
+  },
+  {
+    check: (props) => {
+      const value = typeof props.value === 'string' ? props.value : '';
+      if (props.action === 'open_url' && !isHttpsUrl(value)) return [invalid('open_url needs an https:// URL as value')];
+      if ((props.action === 'copy' || props.action === 'ask_ai') && !value.trim()) return [invalid(`${props.action} needs a value`)];
+      return [];
+    },
+  },
+);
+
+// Calendar and time.
+
+const CalendarEvent = component('CalendarEvent', 'Event inside a Calendar, Agenda or WeekStrip', {
+  date: DateSchema.describe('YYYY-MM-DD in the user\'s local calendar'),
+  title: text(120),
+  time: text(20).optional().describe('e.g. "14:00" or "All day"'),
+  tone: Tone.optional(),
+  url: url.optional(),
+});
+
+const Calendar = component('Calendar', 'Month grid; days with events get a dot and tapping a day lists its events', {
+  month: MonthSchema.describe('YYYY-MM'),
+  events: slot(['CalendarEvent'], { min: 0, max: 100 }),
+  title: label.optional(),
+});
+
+const Agenda = component('Agenda', 'Upcoming events grouped by day (Today, Tomorrow, dates)', {
+  events: slot(['CalendarEvent'], { min: 0, max: 100 }),
+  title: label.optional(),
+});
+
+const WeekStrip = component('WeekStrip', 'The current week as 7 day cells; today is highlighted, days with events get a dot', {
+  events: slot(['CalendarEvent'], { min: 0, max: 50 }),
+  start: DateSchema.optional().describe('Any date in the week to show; default is the current week on the device'),
+});
+
+const Countdown = component('Countdown', 'Live countdown to a moment, computed on the device', {
+  target: DateTimeSchema,
+  label,
+  style: z.enum(['compact', 'large']).optional(),
+});
+
+const Table = component(
+  'Table',
+  'Data table for comparisons; scrolls horizontally when wide',
+  {
+    columns: z.array(text(40)).min(1).max(8),
+    rows: z.array(z.array(text(200))).min(1).max(50),
+    title: label.optional(),
+  },
+  {
+    check: (props) => {
+      const width = Array.isArray(props.columns) ? props.columns.length : 0;
+      const rows = Array.isArray(props.rows) ? props.rows : [];
+      const bad = rows.findIndex((row) => !Array.isArray(row) || row.length !== width);
+      return bad >= 0 ? [invalid(`row ${bad} must have exactly ${width} cells, one per column`)] : [];
+    },
+  },
+);
+
 // Layout components are built per surface because their slots accept that surface's content.
 
 function layout(content: readonly string[]): ComponentSpec[] {
@@ -226,6 +379,8 @@ const CARD_CONTENT = [
   'Sparkline',
   'MiniLineChart',
   'MiniBarChart',
+  'WeekStrip',
+  'Countdown',
   'Link',
 ] as const;
 
@@ -245,17 +400,32 @@ const DETAIL_CONTENT = [
   'List',
   'Timeline',
   'KeyValue',
+  'Table',
   'Sparkline',
   'MiniLineChart',
   'MiniBarChart',
   'LineChart',
   'BarChart',
   'PieChart',
+  'Calendar',
+  'Agenda',
+  'WeekStrip',
+  'Countdown',
+  'Checklist',
+  'TextInput',
+  'Choice',
+  'Rating',
+  'Button',
+  'Tabs',
+  'Accordion',
   'Callout',
   'SourceList',
   'Link',
   'Divider',
 ] as const;
+
+/** What Sections, Stacks, Rows, tabs and accordion panels may contain. */
+const NESTED_CONTENT = DETAIL_CONTENT.filter((name) => name !== 'Section');
 
 export const CARD_ROOT = 'CardContainer';
 export const DETAIL_ROOT = 'Page';
@@ -281,6 +451,9 @@ export const cardSpecs: ComponentSpec[] = [
   Sparkline,
   MiniLineChart,
   MiniBarChart,
+  WeekStrip,
+  CalendarEvent,
+  Countdown,
   Link,
 ];
 
@@ -290,9 +463,24 @@ export const detailSpecs: ComponentSpec[] = [
   }),
   component('Section', 'Titled group of content', {
     title: label,
-    children: slot(DETAIL_CONTENT.filter((name) => name !== 'Section')),
+    children: slot(NESTED_CONTENT),
   }),
-  ...layout(DETAIL_CONTENT.filter((name) => name !== 'Section')),
+  ...layout(NESTED_CONTENT),
+  component('Tabs', 'Switches between panels; only the selected Tab is shown', {
+    tabs: slot(['Tab'], { min: 2, max: 6 }),
+  }),
+  component('Tab', 'One panel inside Tabs', {
+    label: text(24),
+    children: slot(NESTED_CONTENT.filter((name) => name !== 'Tabs')),
+  }),
+  component('Accordion', 'Collapsible sections the user can expand', {
+    items: slot(['AccordionItem'], { max: 20 }),
+  }),
+  component('AccordionItem', 'One collapsible section inside an Accordion', {
+    title: text(120),
+    children: slot(NESTED_CONTENT.filter((name) => name !== 'Tabs' && name !== 'Accordion')),
+    open: z.boolean().optional().describe('Start expanded'),
+  }),
   Heading,
   Text,
   Caption,
@@ -307,12 +495,24 @@ export const detailSpecs: ComponentSpec[] = [
   Timeline,
   TimelineItem,
   KeyValue,
+  Table,
   Sparkline,
   MiniLineChart,
   MiniBarChart,
   LineChart,
   BarChart,
   PieChart,
+  Calendar,
+  Agenda,
+  WeekStrip,
+  CalendarEvent,
+  Countdown,
+  Checklist,
+  ChecklistItem,
+  TextInput,
+  Choice,
+  Rating,
+  Button,
   Callout,
   Source,
   SourceList,

@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime, formatRelative } from '@/lib/time';
 import { OpenUIView } from '@/openui/OpenUIView';
 import { openUrl } from '@/openui/open-url';
+import { useCardStateStore } from '@/store/card-state';
 import { useDashboard } from '@/store/dashboard';
 
 export default function CardDetailScreen() {
@@ -17,6 +18,8 @@ export default function CardDetailScreen() {
   const now = useNow();
   // Rendered straight from the synced (or cached) detailUi; no AI call happens here.
   const card = useDashboard((state) => state.cards[id]);
+  const remoteRefresh = useCardStateStore((store) => store.remote[id]?.refreshRequestedAt ?? null);
+  const pendingRefresh = useCardStateStore((store) => store.pending[id]?.refreshRequestedAt ?? null);
 
   if (!card || card.deletedAt !== null) {
     return (
@@ -27,6 +30,7 @@ export default function CardDetailScreen() {
   }
 
   const status = deriveStatus(card, now);
+  const refreshRequested = (remoteRefresh ?? pendingRefresh) !== null;
   // The app lists structured sources unless the page already cites them inline.
   const showSources = card.sources.length > 0 && !/\bSourceList\s*\(/.test(card.detailUi);
   const automation = card.automation;
@@ -39,7 +43,12 @@ export default function CardDetailScreen() {
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic">
         <View style={styles.inner}>
-          <OpenUIView surface="detail" source={card.detailUi} />
+          {refreshRequested ? (
+            <Text style={[styles.meta, styles.requested, { color: colors.accent, borderColor: colors.accent }]}>
+              {strings.card.refreshRequested}
+            </Text>
+          ) : null}
+          <OpenUIView surface="detail" source={card.detailUi} cardId={card.id} />
 
           {showSources ? (
             <View style={styles.block}>
@@ -95,4 +104,5 @@ const styles = StyleSheet.create({
   sourceTitle: { fontSize: 14, fontWeight: '600' },
   meta: { fontSize: 12, lineHeight: 17 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 4 },
+  requested: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, textAlign: 'center' },
 });

@@ -8,6 +8,7 @@ import {
 
 import { clearCache } from '@/lib/cache';
 import { firebase } from '@/lib/firebase';
+import { useCardStateStore } from '@/store/card-state';
 import { useDashboard } from '@/store/dashboard';
 import { useSession } from '@/store/session';
 
@@ -32,6 +33,7 @@ export async function resetPassword(email: string): Promise<void> {
 export async function signOut(): Promise<void> {
   await firebaseSignOut(firebase().auth);
   useDashboard.getState().reset();
+  useCardStateStore.getState().reset();
   await clearCache();
 }
 

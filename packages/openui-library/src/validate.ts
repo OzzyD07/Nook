@@ -14,7 +14,8 @@ export type UiErrorCode =
   | 'unresolved-reference'
   | 'forbidden-syntax'
   | 'too-deep'
-  | 'too-many-nodes';
+  | 'too-many-nodes'
+  | 'duplicate-id';
 
 export interface UiIssue {
   code: UiErrorCode;
@@ -23,11 +24,18 @@ export interface UiIssue {
   message: string;
 }
 
+/** An interactive component whose user input is saved under `id`. */
+export interface UiStateField {
+  id: string;
+  component: string;
+}
+
 export interface UiStats {
   bytes: number;
   nodes: number;
   depth: number;
   components: string[];
+  stateFields: UiStateField[];
 }
 
 export type UiValidationResult =
@@ -137,6 +145,7 @@ export function validateOpenUI(surface: UiSurface, source: string): UiValidation
   }
 
   const components = new Set<string>();
+  const stateFields: UiStateField[] = [];
   let nodes = 0;
   let maxDepth = 0;
   const depthLimit = LIMITS.uiMaxDepth[surface];
@@ -185,6 +194,19 @@ export function validateOpenUI(surface: UiSurface, source: string): UiValidation
           path: `${path}.${issue.path.join('.') || '(props)'}`,
           message: issue.message,
         });
+      }
+    } else {
+      for (const issue of spec.check?.(node.props) ?? []) errors.push({ ...issue, path });
+      if (spec.stateful && typeof node.props.id === 'string') {
+        if (stateFields.some((field) => field.id === node.props.id)) {
+          errors.push({
+            code: 'duplicate-id',
+            path: `${path}.id`,
+            message: `id "${node.props.id}" is already used by another interactive component; ids must be unique`,
+          });
+        } else {
+          stateFields.push({ id: node.props.id, component: node.typeName });
+        }
       }
     }
 
@@ -237,7 +259,7 @@ export function validateOpenUI(surface: UiSurface, source: string): UiValidation
     errors.push({ code: 'too-many-nodes', path: '', message: `Document has ${nodes} components; the ${surface} limit is ${nodeLimit}` });
   }
 
-  const stats: UiStats = { bytes, nodes, depth: maxDepth, components: [...components].sort() };
+  const stats: UiStats = { bytes, nodes, depth: maxDepth, components: [...components].sort(), stateFields };
   if (errors.length > 0) return { ok: false, errors, warnings, stats };
   return { ok: true, tree: root, warnings, stats };
 }

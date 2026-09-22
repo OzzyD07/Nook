@@ -6,7 +6,7 @@ import { getLibrary } from './library';
 
 export const OPENUI_LANG_CORE_VERSION = '0.3.0';
 /** Bump when components or their props change in a way the AI should know about. */
-export const RENDERER_VERSION = '1.0.0';
+export const RENDERER_VERSION = '1.1.0';
 
 const SHARED_RULES = [
   'Only use the components listed above. Unknown components are rejected.',
@@ -27,12 +27,16 @@ const SURFACE_RULES: Record<UiSurface, string[]> = {
     'The detail page is a full screen that scrolls. Use Sections to structure longer content.',
     `Maximum ${LIMITS.uiMaxBytes.detail} bytes, ${LIMITS.uiMaxNodes.detail} components, ${LIMITS.uiMaxDepth.detail} levels of nesting.`,
     'The app lists the card sources below the page. Only add a SourceList when you want citations inline.',
+    "Interactive components (Checklist, TextInput, Choice, Rating) save what the user enters under their id. get_card returns it as userState. Keep the same ids when you regenerate the page so the user's input is preserved; a new id starts empty.",
+    "A ChecklistItem's checked argument is only the initial state; once the user ticks an item, userState wins.",
+    'Button("…", "request_refresh") lets the user ask for new content: get_dashboard then shows refreshRequestedAt for the card. Refresh it on your next run and call update_card_state with clearRefreshRequest.',
+    "Dates are plain YYYY-MM-DD in the user's calendar; Countdown targets are ISO date-times with an offset. The device computes \"today\", countdowns and the current week.",
   ],
 };
 
 const SURFACE_EXAMPLES: Record<UiSurface, string[]> = {
-  card: [EXAMPLES.newsCard, EXAMPLES.metricCard, EXAMPLES.quoteCard],
-  detail: [EXAMPLES.newsDetail, EXAMPLES.metricDetail],
+  card: [EXAMPLES.newsCard, EXAMPLES.metricCard, EXAMPLES.quoteCard, EXAMPLES.weekCard],
+  detail: [EXAMPLES.newsDetail, EXAMPLES.metricDetail, EXAMPLES.groceryDetail, EXAMPLES.calendarDetail],
 };
 
 const PREAMBLE: Record<UiSurface, string> = {
@@ -71,6 +75,7 @@ export function buildUiCapabilities() {
       'create_card for new cards. For refreshes: get_card (read version) then update_card_content with expectedVersion.',
       'Pass structured sources (https only) with every content write that is based on research.',
       'When you schedule a recurring refresh, call register_automation so the app can show and monitor it.',
+      'On scheduled runs, check get_dashboard for refreshRequestedAt and userStateUpdatedAt, and read userState via get_card to adapt to what the user ticked or wrote.',
     ],
     layout: {
       columns: { phone: GRID.phoneColumns, tablet: GRID.tabletColumns },

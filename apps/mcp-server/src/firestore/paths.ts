@@ -18,6 +18,7 @@ export function userPaths(uid: string) {
     card: (cardId: string) => `${root}/cards/${segment(cardId, ID, 'card id')}`,
     cardVersion: (cardId: string, version: number) =>
       `${root}/cardVersions/${segment(cardId, ID, 'card id')}_v${Math.trunc(version)}`,
+    cardState: (cardId: string) => `${root}/cardState/${segment(cardId, ID, 'card id')}`,
     idempotency: (id: string) => `${root}/idempotency/${segment(id, ID, 'idempotency id')}`,
     auditLog: (id: string) => `${root}/auditLogs/${segment(id, ID, 'audit id')}`,
   };

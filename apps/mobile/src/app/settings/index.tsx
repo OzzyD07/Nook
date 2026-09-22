@@ -14,12 +14,13 @@ import { confirmAsync, showError } from '@/lib/confirm';
 import { formatBytes, formatDateTime, formatRelative } from '@/lib/time';
 import { listConnections, mcpEndpoint, revokeAllConnections, revokeConnection, type AiConnection } from '@/services/api';
 import { signOut } from '@/services/auth';
-import { saveTheme } from '@/services/settings';
+import { saveAiApp, saveTheme } from '@/services/settings';
 import { activeCards, useDashboard } from '@/store/dashboard';
-import { usePreferences, type ThemePreference } from '@/store/preferences';
+import { usePreferences, type AiApp, type ThemePreference } from '@/store/preferences';
 import { useSession } from '@/store/session';
 
 const THEMES: ThemePreference[] = ['system', 'light', 'dark'];
+const AI_APPS: AiApp[] = ['claude', 'chatgpt', 'gemini'];
 
 function useConnections() {
   const [state, setState] = useState<{ connections: AiConnection[] | null; error: string | null }>({
@@ -49,6 +50,7 @@ export default function SettingsScreen() {
   const now = useNow();
   const user = useSession((state) => state.user);
   const theme = usePreferences((state) => state.theme);
+  const aiApp = usePreferences((state) => state.aiApp);
   const allCards = useDashboard((state) => state.cards);
   const lastSyncAt = useDashboard((state) => state.lastSyncAt);
   const syncState = useDashboard((state) => state.syncState);
@@ -153,6 +155,18 @@ export default function SettingsScreen() {
             label={strings.settings.themes[option]}
             value={theme === option ? '✓' : undefined}
             onPress={() => user && saveTheme(user.uid, option).catch(showError)}
+          />
+        ))}
+      </SettingsSection>
+
+      <SettingsSection title={strings.settings.aiApp}>
+        {AI_APPS.map((option, index) => (
+          <SettingsRow
+            key={option}
+            first={index === 0}
+            label={strings.settings.aiApps[option]}
+            value={aiApp === option ? '✓' : undefined}
+            onPress={() => user && saveAiApp(user.uid, option).catch(showError)}
           />
         ))}
       </SettingsSection>

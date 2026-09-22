@@ -80,6 +80,14 @@ Scheduled refreshes run in the AI host (for example Claude Cowork scheduled task
 
 Revoke a connection any time in **Settings → AI Connections**.
 
+## Updating
+
+After pulling changes, redeploy whatever changed:
+
+- `firebase/firestore.rules` or indexes: `cd firebase && npx firebase-tools deploy --only firestore --project <your-project-id>`
+- `apps/mcp-server` or `packages/*`: `cd apps/mcp-server && npx wrangler deploy`
+- The app: preview and production builds contain the JavaScript, so any app change needs a new `eas build`. A development build only needs `npx expo start` restarted, unless native config (icons, plugins, packages with native code) changed.
+
 ## Free tier notes
 
 - Workers: 100k requests/day, 10 ms CPU per request. Card validation stays well under that for typical documents.

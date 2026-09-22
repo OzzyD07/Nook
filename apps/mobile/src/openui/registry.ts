@@ -1,4 +1,5 @@
 import { BarChart, LineChart, MiniBarChart, MiniLineChart, PieChart, Sparkline } from '@/openui/charts/charts';
+import { Agenda, Calendar, CalendarEvent, Countdown, WeekStrip } from '@/openui/components/calendar';
 import {
   Icon,
   Image,
@@ -12,7 +13,20 @@ import {
   Timeline,
   TimelineItem,
 } from '@/openui/components/data';
+import {
+  Accordion,
+  AccordionItem,
+  Button,
+  Checklist,
+  ChecklistItem,
+  Choice,
+  Rating,
+  Tab,
+  Tabs,
+  TextInput,
+} from '@/openui/components/interactive';
 import { CardContainer, Divider, Page, Row, Section, Stack } from '@/openui/components/layout';
+import { Table } from '@/openui/components/table';
 import { Badge, Callout, Caption, Heading, Link, Quote, Text } from '@/openui/components/text';
 import type { NodeComponent } from '@/openui/types';
 
@@ -48,4 +62,20 @@ export const registry: Record<string, NodeComponent> = {
   LineChart,
   BarChart,
   PieChart,
+  Table,
+  Calendar,
+  CalendarEvent,
+  Agenda,
+  WeekStrip,
+  Countdown,
+  Checklist,
+  ChecklistItem,
+  TextInput,
+  Choice,
+  Rating,
+  Button,
+  Tabs,
+  Tab,
+  Accordion,
+  AccordionItem,
 };

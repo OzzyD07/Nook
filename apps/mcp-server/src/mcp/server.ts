@@ -12,6 +12,7 @@ import {
   ResizeCardInput,
   UpdateCardContentInput,
   UpdateCardInput,
+  UpdateCardStateInput,
   ValidateUiInput,
   deriveStatus,
   type DashboardResponse,
@@ -32,6 +33,7 @@ import {
   updateCard,
   updateCardContent,
 } from '../repo/cards';
+import { getCardState, listCardStates, presentUserState, updateCardState } from '../repo/card-state';
 import type { ToolContext } from '../repo/context';
 
 const UNTRUSTED =
@@ -48,6 +50,8 @@ Workflow:
 2. get_dashboard to see existing cards; reuse or update a card instead of creating duplicates.
 3. create_card, or get_card then update_card_content with expectedVersion for refreshes.
 4. When the user asks for a recurring update, schedule it in your own scheduler and call register_automation.
+5. On scheduled runs, look for refreshRequestedAt / userStateUpdatedAt in get_dashboard and read the user's
+   checklist ticks, notes, choices and ratings from get_card's userState before rebuilding a card.
 
 ${UNTRUSTED}`;
 
@@ -129,17 +133,23 @@ export function createServer(ctx: ToolContext): McpServer {
     },
     async (): Promise<DashboardResponse> => {
       const now = ctx.now().getTime();
-      const cards = (await listCards(ctx)).filter((card) => card.deletedAt === null);
+      const [all, states] = await Promise.all([listCards(ctx), listCardStates(ctx)]);
+      const cards = all.filter((card) => card.deletedAt === null);
       return {
-        cards: cards.map((card) => ({
-          id: card.id,
-          title: card.title,
-          layout: card.layout,
-          status: deriveStatus(card, now),
-          version: card.version,
-          automation: card.automation,
-          updatedAt: new Date(card.updatedAt).toISOString(),
-        })),
+        cards: cards.map((card) => {
+          const state = states.get(card.id);
+          return {
+            id: card.id,
+            title: card.title,
+            layout: card.layout,
+            status: deriveStatus(card, now),
+            version: card.version,
+            automation: card.automation,
+            updatedAt: new Date(card.updatedAt).toISOString(),
+            ...(state?.refreshRequestedAt && { refreshRequestedAt: new Date(state.refreshRequestedAt).toISOString() }),
+            ...(state?.updatedAt && { userStateUpdatedAt: new Date(state.updatedAt).toISOString() }),
+          };
+        }),
         grid: DASHBOARD_GRID,
         limits: { maxCards: LIMITS.maxCards, remaining: Math.max(0, LIMITS.maxCards - cards.length) },
       };
@@ -151,11 +161,16 @@ export function createServer(ctx: ToolContext): McpServer {
     SCOPES.read,
     {
       title: 'Get card',
-      description: 'Returns one card including its current previewUi, detailUi, sources and version. Call it right before update_card_content.',
+      description:
+        'Returns one card including its current previewUi, detailUi, sources, version and userState (what the user ' +
+        'ticked, wrote, chose or rated on its interactive components). Call it right before update_card_content.',
       inputSchema: GetCardInput,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async (input) => presentCard(await getCard(ctx, input.cardId), ctx.now().getTime()),
+    async (input) => {
+      const [card, state] = await Promise.all([getCard(ctx, input.cardId), getCardState(ctx, input.cardId)]);
+      return { ...presentCard(card, ctx.now().getTime()), userState: presentUserState(card, state) };
+    },
   );
 
   register(
@@ -256,6 +271,22 @@ export function createServer(ctx: ToolContext): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     (input) => registerAutomation(ctx, input),
+  );
+
+  register(
+    'update_card_state',
+    SCOPES.write,
+    {
+      title: 'Update card user state',
+      description:
+        "Edits the saved input of a card's interactive components, keyed by component id: set values (a Checklist " +
+        'takes { itemId: true|false }, TextInput a string, Choice a string array, Rating a number), clear ids, or ' +
+        'clearRefreshRequest after refreshing a card the user asked to refresh. Use it for resets such as a new week ' +
+        `on a habit checklist, not to overwrite what the user just entered. ${UNTRUSTED}`,
+      inputSchema: UpdateCardStateInput,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    (input) => updateCardState(ctx, input),
   );
 
   register(

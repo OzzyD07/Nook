@@ -12,8 +12,11 @@ describe('examples', () => {
     ['card', EXAMPLES.newsCard],
     ['card', EXAMPLES.metricCard],
     ['card', EXAMPLES.quoteCard],
+    ['card', EXAMPLES.weekCard],
     ['detail', EXAMPLES.newsDetail],
     ['detail', EXAMPLES.metricDetail],
+    ['detail', EXAMPLES.groceryDetail],
+    ['detail', EXAMPLES.calendarDetail],
   ] as const)('%s example validates', (surface, source) => {
     const result = validateOpenUI(surface, source);
     expect(result.ok ? [] : result.errors).toEqual([]);
@@ -118,5 +121,66 @@ describe('error locations', () => {
   it('rejects ternaries in slots', () => {
     const result = validateOpenUI('card', '$on = true\nroot = CardContainer($on ? [Text("a")] : [Text("b")])');
     expect(!result.ok && result.errors.map((error) => error.code)).toContain('forbidden-syntax');
+  });
+});
+
+describe('interactive components', () => {
+  it('lists the stateful fields of a document', () => {
+    const result = validateOpenUI('detail', EXAMPLES.groceryDetail);
+    expect(result.ok && result.stats.stateFields).toEqual([
+      { id: 'groceries', component: 'Checklist' },
+      { id: 'requests', component: 'TextInput' },
+    ]);
+  });
+
+  it('keeps stateful components off the card surface', () => {
+    expect(codes('card', 'root = CardContainer([TextInput("note", "Note")])')).toContain('unknown-component');
+  });
+
+  it('rejects duplicate ids across interactive components', () => {
+    expect(codes('detail', 'root = Page([TextInput("note", "A"), Rating("note", "B")])')).toContain('duplicate-id');
+  });
+
+  it('rejects duplicate checklist item ids', () => {
+    expect(
+      codes('detail', 'root = Page([Checklist("list", [ChecklistItem("a", "One"), ChecklistItem("a", "Two")])])'),
+    ).toContain('duplicate-id');
+  });
+
+  it('rejects malformed ids', () => {
+    expect(codes('detail', 'root = Page([TextInput("My Note", "A")])')).toContain('invalid-prop');
+  });
+
+  it('checks button actions against their value', () => {
+    expect(codes('detail', 'root = Page([Button("Go", "open_url", "http://example.com")])')).toContain('invalid-prop');
+    expect(codes('detail', 'root = Page([Button("Copy", "copy")])')).toContain('invalid-prop');
+    expect(codes('detail', 'root = Page([Button("Refresh", "request_refresh")])')).toEqual([]);
+  });
+
+  it('rejects duplicate choice options', () => {
+    expect(codes('detail', 'root = Page([Choice("pick", "Pick", ["A", "A"])])')).toContain('invalid-prop');
+  });
+
+  it('does not allow Tabs inside a Tab', () => {
+    expect(
+      codes('detail', 'root = Page([Tabs([Tab("A", [Tabs([Tab("x", [Text("1")]), Tab("y", [Text("2")])])]), Tab("B", [Text("b")])])])'),
+    ).toContain('wrong-parent');
+  });
+});
+
+describe('calendar and table components', () => {
+  it('rejects impossible dates and months', () => {
+    expect(codes('detail', 'root = Page([Agenda([CalendarEvent("2026-02-30", "x")])])')).toContain('invalid-prop');
+    expect(codes('detail', 'root = Page([Calendar("2026-13", [])])')).toContain('invalid-prop');
+    expect(codes('card', 'root = CardContainer([Countdown("tomorrow", "Soon")])')).toContain('invalid-prop');
+  });
+
+  it('allows empty calendars and agendas', () => {
+    expect(codes('detail', 'root = Page([Calendar("2026-09", []), Agenda([])])')).toEqual([]);
+  });
+
+  it('requires table rows to match the columns', () => {
+    expect(codes('detail', 'root = Page([Table(["A", "B"], [["1", "2"], ["3"]])])')).toContain('invalid-prop');
+    expect(codes('detail', 'root = Page([Table(["A", "B"], [["1", "2"]], "Compare")])')).toEqual([]);
   });
 });

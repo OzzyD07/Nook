@@ -50,6 +50,16 @@ service cloud.firestore {
         allow create: if isOwner(uid) && request.resource.data.provider == 'app';
       }
 
+      // Input on interactive components (checklists, notes, choices, ratings) and
+      // "request refresh" taps. Written by the app; the AI reads it through the Worker.
+      match /cardState/{cardId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['fields', 'refreshRequestedAt', 'updatedAt'])
+          && request.resource.data.get('fields', {}) is map
+          && request.resource.data.get('fields', {}).size() <= 100;
+      }
+
       match /settings/{docId} {
         allow read, write: if isOwner(uid);
       }

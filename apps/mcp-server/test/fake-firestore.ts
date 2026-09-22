@@ -17,6 +17,24 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const error = (status: number, code: string, message: string) => json({ error: { code: status, status: code, message } }, status);
 
+/** Splits `a.b` and quoted `a.\`b-c\`` field paths like Firestore does. */
+function splitFieldPath(path: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  let quoted = false;
+  for (let i = 0; i < path.length; i++) {
+    const char = path[i]!;
+    if (quoted && char === '\\') current += path[++i] ?? '';
+    else if (char === '`') quoted = !quoted;
+    else if (char === '.' && !quoted) {
+      segments.push(current);
+      current = '';
+    } else current += char;
+  }
+  segments.push(current);
+  return segments;
+}
+
 function setPath(fields: Fields, path: string[], value: FirestoreValue | undefined) {
   const [head, ...rest] = path;
   if (!head) return;
@@ -100,7 +118,7 @@ export class FakeFirestore {
       if (write.updateMask) {
         const next = structuredClone(this.docs.get(name)?.fields ?? {});
         for (const fieldPath of write.updateMask.fieldPaths) {
-          const segments = fieldPath.split('.');
+          const segments = splitFieldPath(fieldPath);
           setPath(next, segments, getPath(fields, segments));
         }
         this.docs.set(name, { fields: next, updateTime });

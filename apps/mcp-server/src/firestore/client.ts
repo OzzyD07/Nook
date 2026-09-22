@@ -56,6 +56,13 @@ export interface Query {
   limit?: number;
 }
 
+/** Joins field path segments, quoting any that are not plain identifiers (e.g. "week-rating"). */
+export function fieldPath(...segments: string[]): string {
+  return segments
+    .map((segment) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(segment) ? segment : '`' + segment.replace(/[`\\]/g, '\\$&') + '`'))
+    .join('.');
+}
+
 /** Minimal Firestore REST client: get, query, and atomic commits with preconditions. */
 export class Firestore {
   private readonly root: string;

@@ -5,4 +5,4 @@ export { CARD_ROOT, DETAIL_ROOT } from './components';
 export { EXAMPLES } from './examples';
 export { ICON_NAMES, ICONS, type IconName } from './icons';
 export { getLibrary } from './library';
-export { validateOpenUI, type UiIssue, type UiStats, type UiValidationResult } from './validate';
+export { validateOpenUI, type UiIssue, type UiStateField, type UiStats, type UiValidationResult } from './validate';

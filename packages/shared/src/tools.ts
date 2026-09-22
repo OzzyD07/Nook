@@ -117,6 +117,10 @@ export interface DashboardCardSummary {
   version: number;
   automation: CardAutomation | null;
   updatedAt: string;
+  /** Set when the user tapped a "request refresh" button and you have not cleared it yet. */
+  refreshRequestedAt?: string;
+  /** Last time the user changed a checklist, note, choice or rating on this card. */
+  userStateUpdatedAt?: string;
 }
 
 export interface DashboardResponse {

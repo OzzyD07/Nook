@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { strings } from '@/constants/strings';
 import { useTheme } from '@/hooks/use-theme';
 import { registry } from '@/openui/registry';
+import { CardStateProvider } from '@/openui/state-context';
 import type { RenderedChild } from '@/openui/types';
 
 function isElement(value: unknown): value is ElementNode {
@@ -17,15 +18,16 @@ function isElement(value: unknown): value is ElementNode {
 function Node({ node }: { node: ElementNode }) {
   const Component = registry[node.typeName];
   if (!Component) return null;
-  const slot = (key: string): RenderedChild[] => {
+  const nodes = (key: string): ElementNode[] => {
     const value = node.props[key];
-    if (!Array.isArray(value)) return [];
-    return value.filter(isElement).map((child, index) => ({
+    return Array.isArray(value) ? value.filter(isElement) : [];
+  };
+  const slot = (key: string): RenderedChild[] =>
+    nodes(key).map((child, index) => ({
       type: child.typeName,
       element: <Node key={index} node={child} />,
     }));
-  };
-  return <Component props={node.props} slot={slot} />;
+  return <Component props={node.props} slot={slot} nodes={nodes} />;
 }
 
 function Unrenderable({ detail }: { detail?: string }) {
@@ -46,17 +48,19 @@ function Unrenderable({ detail }: { detail?: string }) {
 /**
  * Renders an OpenUI Lang document natively. The document is re-validated on the
  * device with the same rules the MCP server applies, so nothing unvalidated renders.
+ * Pass `cardId` to make interactive components editable and save their input.
  */
-export function OpenUIView({ surface, source }: { surface: UiSurface; source: string }) {
+export function OpenUIView({ surface, source, cardId }: { surface: UiSurface; source: string; cardId?: string }) {
   const result = useMemo(() => validateOpenUI(surface, source), [surface, source]);
   if (!result.ok) {
     return <Unrenderable detail={result.errors.map((e) => `${e.path}: ${e.message}`).join('\n')} />;
   }
-  return (
+  const tree = (
     <ErrorBoundary resetKey={source} fallback={<Unrenderable />}>
       <Node node={result.tree} />
     </ErrorBoundary>
   );
+  return cardId ? <CardStateProvider cardId={cardId}>{tree}</CardStateProvider> : tree;
 }
 
 const styles = StyleSheet.create({
