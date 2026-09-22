@@ -67,7 +67,9 @@ export class Firestore {
     this.base = options.emulatorHost
       ? `http://${options.emulatorHost}/v1`
       : 'https://firestore.googleapis.com/v1';
-    this.fetchImpl = options.fetch ?? fetch;
+    // Workers throw "Illegal invocation" if the global fetch is called with another `this`,
+    // which `this.fetchImpl(...)` would do; wrap it instead of storing the bare reference.
+    this.fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
   }
 
   /** Full resource name for a document path. */

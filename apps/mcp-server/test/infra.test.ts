@@ -66,3 +66,20 @@ describe('service account token', () => {
     expect(calls).toBe(1);
   });
 });
+
+describe('Firestore client', () => {
+  it('calls the global fetch without rebinding `this` (Workers reject that as Illegal invocation)', async () => {
+    const { Firestore } = await import('../src/firestore/client');
+    const original = globalThis.fetch;
+    globalThis.fetch = function (this: unknown) {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(Response.json({ error: { status: 'NOT_FOUND', message: 'missing' } }, { status: 404 }));
+    } as typeof fetch;
+    try {
+      const db = new Firestore({ projectId: 'demo', getToken: async () => 'token' });
+      await expect(db.get('users/u1/cards/c1')).resolves.toBeNull();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
