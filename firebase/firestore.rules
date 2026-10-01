@@ -14,8 +14,9 @@ service cloud.firestore {
         allow read: if isOwner(uid);
 
         // Cards are created and edited by the AI through the Worker. The app may only
-        // undo things: restore a deleted card, or roll back to an earlier version.
-        allow update: if isOwner(uid) && (isUndelete() || isRollback());
+        // undo things (restore a deleted card, roll back to an earlier version) and lock or
+        // unlock a card's design. The Worker can lock but never unlock.
+        allow update: if isOwner(uid) && (isUndelete() || isRollback() || isDesignLockChange());
 
         function changed() {
           return request.resource.data.diff(resource.data).affectedKeys();
@@ -23,6 +24,13 @@ service cloud.firestore {
 
         function isUndelete() {
           return changed().hasOnly(['deletedAt']) && request.resource.data.deletedAt == null;
+        }
+
+        function isDesignLockChange() {
+          let next = request.resource.data;
+          return changed().hasOnly(['designLocked', 'designLockedAt'])
+            && next.designLocked is bool
+            && (next.designLocked ? next.designLockedAt == request.time : next.designLockedAt == null);
         }
 
         function isRollback() {

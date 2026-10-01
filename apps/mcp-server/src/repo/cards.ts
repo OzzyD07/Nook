@@ -1,4 +1,4 @@
-import { validateUi, type UiIssue } from '@nook/openui';
+import { designChanges, validateUi, type DesignChange, type UiIssue } from '@nook/openui';
 import {
   CardAutomationSchema,
   CardLayoutSchema,
@@ -10,6 +10,7 @@ import {
   type CardActor,
   type CreateCardInput,
   type DeleteCardInput,
+  type LockCardDesignInput,
   type MoveCardInput,
   type RegisterAutomationInput,
   type ResizeCardInput,
@@ -50,6 +51,8 @@ function toCard(doc: StoredDocument): Card {
     updatedAt: millis(data.updatedAt) ?? 0,
     deletedAt: millis(data.deletedAt),
     lastUpdatedBy: actor?.clientId ? { clientId: actor.clientId, clientName: actor.clientName } : null,
+    designLocked: data.designLocked === true,
+    designLockedAt: millis(data.designLockedAt),
   };
 }
 
@@ -68,9 +71,41 @@ export function presentCard(card: Card, now: number) {
     detailUi: card.detailUi,
     sources: card.sources,
     automation: card.automation,
+    designLocked: card.designLocked,
     createdAt: iso(card.createdAt),
     updatedAt: iso(card.updatedAt),
   };
+}
+
+const UNLOCK_HINT = 'Only the user can unlock it, in the Nook app (card page, lock button); do not try to work around the lock.';
+
+/** Rejects layout changes and deletion of a card whose design the user locked. */
+function requireUnlocked(card: Card, action: string): void {
+  if (card.designLocked) {
+    throw new NookError('DESIGN_LOCKED', `The user locked the design of card "${card.id}", so you cannot ${action} it. ${UNLOCK_HINT}`);
+  }
+}
+
+/** On a locked card, content updates may change data only; see designChanges(). */
+function requireSameDesign(card: Card, previewUi: string, detailUi: string): void {
+  if (!card.designLocked) return;
+  const changes: Record<string, DesignChange[]> = {};
+  const preview = designChanges('card', card.previewUi, previewUi);
+  const detail = designChanges('detail', card.detailUi, detailUi);
+  if (preview.length) changes.previewUi = preview;
+  if (detail.length) changes.detailUi = detail;
+  if (!preview.length && !detail.length) return;
+  const listed = [...preview.map((c) => ['previewUi', c] as const), ...detail.map((c) => ['detailUi', c] as const)]
+    .slice(0, 12)
+    .map(([field, change]) => `- ${field} ${change.path}: ${change.message}`)
+    .join('\n');
+  throw new NookError(
+    'DESIGN_LOCKED',
+    `The user locked the design of card "${card.id}". You may update its data (text, numbers, value lists, links, images, ` +
+      `icon names) but the design must stay exactly as it is. Design changes found:\n${listed}\n\n` +
+      `Start from the current previewUi and detailUi in get_card and change only the data. ${UNLOCK_HINT}`,
+    { changes },
+  );
 }
 
 export async function listCards(ctx: ToolContext): Promise<Card[]> {
@@ -211,6 +246,7 @@ export async function updateCardContent(ctx: ToolContext, input: UpdateCardConte
     input,
     async () => {
       const { card, doc } = await loadCard(ctx, input.cardId);
+      requireSameDesign(card, input.previewUi, input.detailUi);
       if (card.version !== input.expectedVersion) {
         throw new NookError(
           'VERSION_CONFLICT',
@@ -290,10 +326,22 @@ export function updateCard(ctx: ToolContext, input: UpdateCardInput) {
 }
 
 export function resizeCard(ctx: ToolContext, input: ResizeCardInput) {
-  return patchCard(ctx, 'resize_card', input, () => ({
-    data: { layout: { columnSpan: input.columnSpan, rowSpan: input.rowSpan } },
-    fieldPaths: ['layout.columnSpan', 'layout.rowSpan'],
-  }));
+  return patchCard(ctx, 'resize_card', input, (card) => {
+    requireUnlocked(card, 'resize');
+    return {
+      data: { layout: { columnSpan: input.columnSpan, rowSpan: input.rowSpan } },
+      fieldPaths: ['layout.columnSpan', 'layout.rowSpan'],
+    };
+  });
+}
+
+/** Locks only. Unlocking is deliberately not available to the AI. */
+export function lockCardDesign(ctx: ToolContext, input: LockCardDesignInput) {
+  return patchCard(ctx, 'lock_card_design', input, (card) =>
+    card.designLocked
+      ? { data: { designLocked: true }, fieldPaths: ['designLocked'] }
+      : { data: { designLocked: true, designLockedAt: ctx.now() }, fieldPaths: ['designLocked', 'designLockedAt'] },
+  );
 }
 
 export function registerAutomation(ctx: ToolContext, input: RegisterAutomationInput) {
@@ -305,10 +353,10 @@ export function registerAutomation(ctx: ToolContext, input: RegisterAutomationIn
 
 export function deleteCard(ctx: ToolContext, input: DeleteCardInput) {
   // Soft delete: the card disappears from the dashboard but can be restored in the app.
-  return patchCard(ctx, 'delete_card', input, () => ({
-    data: { deletedAt: ctx.now() },
-    fieldPaths: ['deletedAt'],
-  }));
+  return patchCard(ctx, 'delete_card', input, (card) => {
+    requireUnlocked(card, 'delete');
+    return { data: { deletedAt: ctx.now() }, fieldPaths: ['deletedAt'] };
+  });
 }
 
 export async function moveCard(ctx: ToolContext, input: MoveCardInput) {
@@ -320,6 +368,7 @@ export async function moveCard(ctx: ToolContext, input: MoveCardInput) {
       const active = (await listCards(ctx)).filter((card) => card.deletedAt === null);
       const index = active.findIndex((card) => card.id === input.cardId);
       if (index < 0) throw new NookError('CARD_NOT_FOUND', `No card with id "${input.cardId}".`);
+      requireUnlocked(active[index]!, 'move');
       const [moved] = active.splice(index, 1);
       const position = Math.min(input.position, active.length);
       active.splice(position, 0, moved!);

@@ -2,6 +2,7 @@ export type { ElementNode } from '@openuidev/lang-core';
 
 export { buildUiCapabilities, OPENUI_LANG_CORE_VERSION, RENDERER_VERSION, surfacePrompt } from './capabilities';
 export { CARD_ROOT, DETAIL_ROOT } from './components';
+export { designChanges, type DesignChange } from './design';
 export { validateUi, type UiDocumentResult, type UiFormat } from './document';
 export { EXAMPLES } from './examples';
 export {

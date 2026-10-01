@@ -72,6 +72,8 @@ export const ICONS = {
   gift: { ios: 'gift', material: 'redeem' },
   target: { ios: 'target', material: 'track_changes' },
   gear: { ios: 'gearshape', material: 'settings' },
+  lock: { ios: 'lock', material: 'lock' },
+  unlock: { ios: 'lock.open', material: 'lock_open' },
 } as const;
 
 export type IconName = keyof typeof ICONS;

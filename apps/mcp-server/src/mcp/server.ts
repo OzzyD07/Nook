@@ -6,6 +6,7 @@ import {
   DeleteCardInput,
   GetCardInput,
   LIMITS,
+  LockCardDesignInput,
   MoveCardInput,
   NookError,
   RegisterAutomationInput,
@@ -26,6 +27,7 @@ import {
   deleteCard,
   getCard,
   listCards,
+  lockCardDesign,
   moveCard,
   presentCard,
   registerAutomation,
@@ -51,6 +53,8 @@ Workflow:
 2. get_dashboard to see existing cards; reuse or update a card instead of creating duplicates.
 3. create_card, or get_card then update_card_content with expectedVersion for refreshes.
 4. When the user asks for a recurring update, schedule it in your own scheduler and call register_automation.
+   Cards with designLocked: true were locked by the user: refresh their data only and keep the design as it is.
+   When the user asks you to lock a card's design, call lock_card_design.
 5. On scheduled runs, look for refreshRequestedAt / userStateUpdatedAt in get_dashboard and read the user's
    checklist ticks, notes, choices and ratings from get_card's userState before rebuilding a card.
 
@@ -147,6 +151,7 @@ export function createServer(ctx: ToolContext): McpServer {
             version: card.version,
             automation: card.automation,
             updatedAt: new Date(card.updatedAt).toISOString(),
+            designLocked: card.designLocked,
             ...(state?.refreshRequestedAt && { refreshRequestedAt: new Date(state.refreshRequestedAt).toISOString() }),
             ...(state?.updatedAt && { userStateUpdatedAt: new Date(state.updatedAt).toISOString() }),
           };
@@ -216,6 +221,7 @@ export function createServer(ctx: ToolContext): McpServer {
       description:
         'Replaces a card\'s previewUi, detailUi and sources together, atomically. Pass the version from get_card as ' +
         'expectedVersion; if the card changed since, the call fails with VERSION_CONFLICT and nothing is written. ' +
+        'On a card with designLocked: true only data may change; design changes fail with DESIGN_LOCKED. ' +
         `Scheduled refreshes should call get_card first, then this tool. ${UNTRUSTED}`,
       inputSchema: UpdateCardContentInput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -259,6 +265,21 @@ export function createServer(ctx: ToolContext): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     (input) => resizeCard(ctx, input),
+  );
+
+  register(
+    'lock_card_design',
+    SCOPES.write,
+    {
+      title: 'Lock card design',
+      description:
+        'Locks the design of a card when the user asks for it. Afterwards content updates may change its data (text, numbers, ' +
+        'lists, links, images, icon names) but not its components, arrangement or styling, and the card cannot be resized, ' +
+        'moved or deleted. There is no unlock tool: only the user can unlock a card, in the Nook app.',
+      inputSchema: LockCardDesignInput,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    (input) => lockCardDesign(ctx, input),
   );
 
   register(

@@ -145,7 +145,7 @@ describe('capabilities', () => {
     expect(capabilities.surfaces.card.reference).toContain('CardContainer(');
     expect(capabilities.surfaces.detail.reference).toContain('Page(');
     expect(capabilities.surfaces.card.reference).not.toContain('Quote(');
-    expect(JSON.stringify(capabilities).length).toBeLessThan(48_000);
+    expect(JSON.stringify(capabilities).length).toBeLessThan(50_000);
   });
 });
 

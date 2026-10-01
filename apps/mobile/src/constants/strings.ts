@@ -35,6 +35,11 @@ export const strings = {
     stale: 'Not updated recently',
     error: 'Last update failed',
     refreshRequested: 'Refresh requested · waiting for your AI',
+    lockDesign: 'Lock design',
+    unlockDesign: 'Unlock design',
+    designLocked: 'Design locked · your AI can only update the data',
+    unlockTitle: 'Unlock this design?',
+    unlockBody: 'Your AI will be able to change the layout, style and size of this card again.',
   },
   interactive: {
     copied: 'Copied',

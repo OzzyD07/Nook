@@ -9,6 +9,7 @@ import {
   deleteCard,
   getCard,
   listCards,
+  lockCardDesign,
   moveCard,
   resizeCard,
   updateCardContent,
@@ -168,6 +169,47 @@ describe('cards repository', () => {
       [a.cardId, 1],
       [b.cardId, 2],
     ]);
+  });
+
+  describe('design lock', () => {
+    const lock = (cardId: string) => lockCardDesign(ctx, { cardId, idempotencyKey: `lock-${cardId}` });
+
+    it('locks a card; the AI has no way to unlock it', async () => {
+      const { cardId } = await createCard(ctx, newCard());
+      expect((await getCard(ctx, cardId)).designLocked).toBe(false);
+      await lock(cardId);
+      const card = await getCard(ctx, cardId);
+      expect(card.designLocked).toBe(true);
+      expect(card.designLockedAt).toBe(new Date('2026-09-22T09:00:00Z').getTime());
+    });
+
+    it('accepts data refreshes on a locked card', async () => {
+      const { cardId } = await createCard(ctx, newCard());
+      await lock(cardId);
+      const result = await updateCardContent(ctx, {
+        cardId,
+        expectedVersion: 1,
+        previewUi: EXAMPLES.newsCard.replace('Chipmaker unveils 2 nm process', 'Battery breakthrough announced'),
+        detailUi: EXAMPLES.newsDetail.replace('Three stories', 'Four stories'),
+        idempotencyKey: 'refresh-1',
+      });
+      expect(result.version).toBe(2);
+    });
+
+    it('rejects design changes, resizing, moving and deleting with DESIGN_LOCKED', async () => {
+      const { cardId } = await createCard(ctx, newCard());
+      await lock(cardId);
+      const restyled = EXAMPLES.newsCard.replace('root = CardContainer([header, stories])', 'root = CardContainer([header, stories], null, null, "neon")');
+      await expectCode(
+        updateCardContent(ctx, { cardId, expectedVersion: 1, previewUi: restyled, detailUi: EXAMPLES.newsDetail, idempotencyKey: 'restyle' }),
+        'DESIGN_LOCKED',
+      );
+      await expectCode(resizeCard(ctx, { cardId, columnSpan: 1, rowSpan: 1, idempotencyKey: 'resize' }), 'DESIGN_LOCKED');
+      await expectCode(moveCard(ctx, { cardId, position: 3, idempotencyKey: 'move' }), 'DESIGN_LOCKED');
+      await expectCode(deleteCard(ctx, { cardId, idempotencyKey: 'delete' }), 'DESIGN_LOCKED');
+      const card = await getCard(ctx, cardId);
+      expect(card).toMatchObject({ version: 1, previewUi: EXAMPLES.newsCard, layout: { columnSpan: 2, rowSpan: 2 } });
+    });
   });
 
   it('keeps users apart', async () => {

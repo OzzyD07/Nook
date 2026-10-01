@@ -54,6 +54,8 @@ export function toCard(id: string, data: DocumentData): Card | null {
     updatedAt,
     deletedAt: millis(data.deletedAt),
     lastUpdatedBy: actor(data.lastUpdatedBy),
+    designLocked: data.designLocked === true,
+    designLockedAt: millis(data.designLockedAt),
   };
 }
 

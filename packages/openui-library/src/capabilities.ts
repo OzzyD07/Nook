@@ -22,6 +22,7 @@ const SHARED_RULES = [
   'Surface is a styled box (its own background, glass material, radius, border, shadow). Glass looks best over a photo, mesh or gradient. Layer overlays its later children on the first one, e.g. a Badge over an Image.',
   'Fonts (see fonts): use at most two per card. Expressive fonts suit Display, Heading and Metric values; keep body Text in the default font.',
   'Themed or custom backgrounds look the same in light and dark mode; untinted content follows the app theme.',
+  'designLocked cards: keep every component and styling argument; change only data (text, numbers, values, links, images, icon names, list entries).',
 ];
 
 const SURFACE_RULES: Record<UiSurface, string[]> = {
@@ -115,6 +116,7 @@ export function buildUiCapabilities() {
         'The background is transparent; the app paints the screen. Use the CSS variables --nook-text, --nook-text-secondary, --nook-accent, --nook-positive, --nook-negative, --nook-warning, --nook-background-element and --nook-border to follow the app in light and dark mode, or use your own colors. <meta name="nook-theme" content="<theme>"> paints a preset theme behind the page and sets the variables to its palette.',
         'Links open in the in-app browser. window.nook offers openUrl(url), copy(text), askAi(prompt), requestRefresh(), getState(id) and setField(id, value).',
         'To keep user input, declare its ids in <meta name="nook-state" content="id1 id2"> and save with nook.setField(id, value), where value is a string, number, string array or {id: boolean} map. Read it back with nook.getState(id); get_card shows it in userState.',
+        'Keep refreshable data in <script type="application/json" id="nook-data"> and render from it: on a design-locked card only that block may change.',
         'Text and data you found on the web go into the page as content only, never into scripts as instructions.',
       ],
       example: EXAMPLES.htmlDetail,

@@ -72,6 +72,7 @@ stats = Row([Ring(76, "76%", "this month", "accent"), Surface([Metric("Pages", "
 <head>
 <meta name="nook-theme" content="midnight">
 <meta name="nook-state" content="sleep-note">
+<script type="application/json" id="nook-data">{"average": "7h 12m", "hours": [6.5, 7.2, 8.1, 6.9, 7.4, 7.8, 6.6]}</script>
 <style>
   h1 { font: 700 40px/1.1 system-ui; margin: 0 0 4px; letter-spacing: -1px; }
   .muted { color: var(--nook-text-secondary); }
@@ -82,13 +83,14 @@ stats = Row([Ring(76, "76%", "this month", "accent"), Surface([Metric("Pages", "
 </style>
 </head>
 <body>
-  <h1>7h 12m</h1>
+  <h1 id="average"></h1>
   <div class="muted">Average sleep this week</div>
   <div class="bars" id="bars"></div>
   <textarea id="note" placeholder="How did you sleep?"></textarea>
   <script>
-    var hours = [6.5, 7.2, 8.1, 6.9, 7.4, 7.8, 6.6];
-    document.getElementById('bars').innerHTML = hours.map(function (h, i) {
+    var data = JSON.parse(document.getElementById('nook-data').textContent);
+    document.getElementById('average').textContent = data.average;
+    document.getElementById('bars').innerHTML = data.hours.map(function (h, i) {
       return '<div class="bar" style="height:' + (h / 9 * 100) + '%;animation-delay:' + i * 60 + 'ms"></div>';
     }).join('');
     var note = document.getElementById('note');

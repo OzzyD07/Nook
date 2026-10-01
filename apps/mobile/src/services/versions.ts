@@ -63,6 +63,21 @@ export async function restoreVersion(uid: string, cardId: string, target: CardVe
   });
 }
 
+/**
+ * Locks or unlocks a card's design. While locked, the AI may only refresh its data; only
+ * the app can unlock (see firestore.rules and the Worker's design check).
+ */
+export async function setDesignLock(uid: string, cardId: string, locked: boolean): Promise<void> {
+  const { db } = firebase();
+  await runTransaction(db, async (tx) => {
+    tx.update(doc(db, 'users', uid, 'cards', cardId), {
+      designLocked: locked,
+      designLockedAt: locked ? serverTimestamp() : null,
+    });
+    tx.set(doc(collection(db, 'users', uid, 'auditLogs')), audit(locked ? 'lock_card_design' : 'unlock_card_design', cardId));
+  });
+}
+
 export async function restoreDeletedCard(uid: string, card: Card): Promise<void> {
   const { db } = firebase();
   await runTransaction(db, async (tx) => {

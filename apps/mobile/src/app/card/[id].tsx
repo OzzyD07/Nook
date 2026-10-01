@@ -6,12 +6,15 @@ import { AppIcon } from '@/components/app-icon';
 import { strings } from '@/constants/strings';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
+import { confirmAsync, showError } from '@/lib/confirm';
 import { formatDateTime, formatRelative } from '@/lib/time';
 import { DetailView } from '@/openui/DetailView';
 import { openUrl } from '@/openui/open-url';
 import { PageBackdrop, usePageAppearance } from '@/openui/page-appearance';
 import { useCardStateStore } from '@/store/card-state';
+import { setDesignLock } from '@/services/versions';
 import { useDashboard } from '@/store/dashboard';
+import { useSession } from '@/store/session';
 
 export default function CardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,6 +25,7 @@ export default function CardDetailScreen() {
   const remoteRefresh = useCardStateStore((store) => store.remote[id]?.refreshRequestedAt ?? null);
   const pendingRefresh = useCardStateStore((store) => store.pending[id]?.refreshRequestedAt ?? null);
   const appearance = usePageAppearance(card?.detailUi ?? '');
+  const uid = useSession((state) => state.user?.uid);
 
   if (!card || card.deletedAt !== null) {
     return (
@@ -38,12 +42,30 @@ export default function CardDetailScreen() {
   const automation = card.automation;
   // A themed page also colors the chrome around it: header, sources and footer.
   const chrome = appearance.colors ?? colors;
+  const locked = card.designLocked;
+
+  // Locking is instant; unlocking hands the design back to the AI, so it asks first.
+  const toggleLock = async () => {
+    if (!uid) return;
+    if (locked && !(await confirmAsync(strings.card.unlockTitle, strings.card.unlockBody, strings.card.unlockDesign))) return;
+    setDesignLock(uid, card.id, !locked).catch(showError);
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: chrome.background }]}>
       <Stack.Screen
         options={{
           title: card.title,
+          headerRight: () => (
+            <Pressable
+              onPress={toggleLock}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={locked ? strings.card.unlockDesign : strings.card.lockDesign}
+              accessibilityState={{ selected: locked }}>
+              <AppIcon name={locked ? 'lock' : 'unlock'} size={20} color={locked ? chrome.accent : chrome.textSecondary} />
+            </Pressable>
+          ),
           ...(appearance.colors
             ? { headerStyle: { backgroundColor: chrome.background }, headerTintColor: chrome.text, headerTitleStyle: { color: chrome.text } }
             : null),
@@ -80,6 +102,12 @@ export default function CardDetailScreen() {
           ) : null}
 
           <View style={[styles.footer, { borderTopColor: chrome.border }]}>
+            {locked ? (
+              <View style={styles.lockRow}>
+                <AppIcon name="lock" size={13} color={chrome.accent} />
+                <Text style={[styles.meta, { color: chrome.accent }]}>{strings.card.designLocked}</Text>
+              </View>
+            ) : null}
             <Text style={[styles.meta, { color: chrome.textSecondary }]}>
               {strings.card.updated} {formatRelative(card.updatedAt, now)} · {formatDateTime(card.updatedAt)} · v{card.version}
             </Text>
@@ -114,5 +142,6 @@ const styles = StyleSheet.create({
   sourceTitle: { fontSize: 14, fontWeight: '600' },
   meta: { fontSize: 12, lineHeight: 17 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 4 },
+  lockRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   requested: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, textAlign: 'center' },
 });

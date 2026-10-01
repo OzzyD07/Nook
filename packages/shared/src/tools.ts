@@ -96,6 +96,11 @@ export const ResizeCardInput = z.object({
   idempotencyKey: IdempotencyKeySchema,
 });
 
+export const LockCardDesignInput = z.object({
+  cardId: CardIdSchema,
+  idempotencyKey: IdempotencyKeySchema,
+});
+
 export const RegisterAutomationInput = z.object({
   cardId: CardIdSchema,
   automation: CardAutomationSchema.nullable().describe('Pass null to clear the automation info'),
@@ -111,6 +116,7 @@ export type DeleteCardInput = z.infer<typeof DeleteCardInput>;
 export type MoveCardInput = z.infer<typeof MoveCardInput>;
 export type ResizeCardInput = z.infer<typeof ResizeCardInput>;
 export type RegisterAutomationInput = z.infer<typeof RegisterAutomationInput>;
+export type LockCardDesignInput = z.infer<typeof LockCardDesignInput>;
 
 export interface DashboardCardSummary {
   id: string;
@@ -120,6 +126,8 @@ export interface DashboardCardSummary {
   version: number;
   automation: CardAutomation | null;
   updatedAt: string;
+  /** The user locked the design: refresh the data only, keep everything else as it is. */
+  designLocked: boolean;
   /** Set when the user tapped a "request refresh" button and you have not cleared it yet. */
   refreshRequestedAt?: string;
   /** Last time the user changed a checklist, note, choice or rating on this card. */

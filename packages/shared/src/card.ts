@@ -94,6 +94,12 @@ export interface Card {
   updatedAt: number;
   deletedAt: number | null;
   lastUpdatedBy: CardActor | null;
+  /**
+   * Set by the user. While locked, the AI may refresh the card's data but not change its
+   * design, size or position, nor delete it. Only the app can unlock a card.
+   */
+  designLocked: boolean;
+  designLockedAt: number | null;
 }
 
 export interface CardVersion {

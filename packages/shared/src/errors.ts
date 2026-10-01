@@ -6,6 +6,7 @@ export const ERROR_CODES = [
   'IDEMPOTENCY_KEY_REUSED',
   'FORBIDDEN_SCOPE',
   'CARD_LIMIT_REACHED',
+  'DESIGN_LOCKED',
   'INTERNAL',
 ] as const;
 
