@@ -85,10 +85,10 @@ export const Radius = {
 
 export const MaxContentWidth = 1000;
 
-/** Adds an alpha channel to a #RRGGBB color. */
+/** Sets the alpha channel of a #RRGGBB or #RRGGBBAA color. */
 export function withAlpha(hex: string, alpha: number): string {
   const value = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
     .toString(16)
     .padStart(2, '0');
-  return `${hex}${value}`;
+  return `${hex.slice(0, 7)}${value}`;
 }

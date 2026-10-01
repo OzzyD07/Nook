@@ -31,13 +31,16 @@ const PreviewUiSchema = z
 const DetailUiSchema = z
   .string()
   .min(1)
-  .describe('OpenUI Lang document for the full-screen detail page, using the Detail component library');
+  .describe(
+    'Full-screen detail page: an OpenUI Lang document using the Detail component library, or a complete HTML page ' +
+      'starting with <!doctype html> (see htmlDetail in get_ui_capabilities)',
+  );
 
 export const GetCardInput = z.object({ cardId: CardIdSchema });
 
 export const ValidateUiInput = z.object({
   surface: z.enum(['card', 'detail']).describe('"card" for previewUi, "detail" for detailUi'),
-  ui: z.string().describe('OpenUI Lang document to check'),
+  ui: z.string().describe('Document to check: OpenUI Lang, or an HTML page for the detail surface'),
 });
 
 export const CreateCardInput = z.object({

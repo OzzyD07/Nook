@@ -7,6 +7,8 @@ export interface SlotDef {
   min: number;
   max: number;
   optional: boolean;
+  /** Holds exactly one element instead of an array, e.g. `background`. */
+  single: boolean;
   description?: string;
 }
 
@@ -30,7 +32,7 @@ export interface ComponentSpec {
 
 export function slot(
   accepts: readonly string[],
-  options: { min?: number; max?: number; optional?: boolean; description?: string } = {},
+  options: { min?: number; max?: number; optional?: boolean; single?: boolean; description?: string } = {},
 ): SlotDef {
   return {
     kind: 'slot',
@@ -38,8 +40,14 @@ export function slot(
     min: options.min ?? 1,
     max: options.max ?? 40,
     optional: options.optional ?? false,
+    single: options.single ?? false,
     description: options.description,
   };
+}
+
+/** An optional prop that takes one element, such as a background. */
+export function singleSlot(accepts: readonly string[], description?: string): SlotDef {
+  return slot(accepts, { min: 1, max: 1, optional: true, single: true, description });
 }
 
 export function isSlot(def: PropDef): def is SlotDef {

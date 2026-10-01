@@ -2,20 +2,21 @@ import { Image as ExpoImage } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/app-icon';
-import { useTheme } from '@/hooks/use-theme';
+import { useFontStyle } from '@/openui/fonts';
 import { openUrl } from '@/openui/open-url';
 import { pick, TEXT_SIZE, toneColor } from '@/openui/tokens';
 import type { NodeProps } from '@/openui/types';
+import { colorOrTone, resolveColor, useUiColors, useUiTheme } from '@/openui/ui-theme';
 
-const ICON_SIZE = { sm: 16, md: 22, lg: 32 } as const;
+const ICON_SIZE = { sm: 16, md: 22, lg: 32, xl: 48 } as const;
 
 export function Icon({ props }: NodeProps) {
-  const colors = useTheme();
-  return <AppIcon name={props.name} size={pick(ICON_SIZE, props.size, 'md')} color={toneColor(colors, props.tone)} />;
+  const theme = useUiTheme();
+  return <AppIcon name={props.name} size={pick(ICON_SIZE, props.size, 'md')} color={colorOrTone(theme, props.color, props.tone)} />;
 }
 
 export function Image({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   return (
     <ExpoImage
       source={{ uri: String(props.url) }}
@@ -30,7 +31,9 @@ export function Image({ props }: NodeProps) {
 const METRIC_SIZE = { sm: 20, md: 26, lg: 34 } as const;
 
 export function Metric({ props }: NodeProps) {
-  const colors = useTheme();
+  const theme = useUiTheme();
+  const colors = theme.colors;
+  const font = useFontStyle(props.font ?? theme.font, 'bold');
   const good = props.trend === 'up' ? !props.invertTrend : props.trend === 'down' ? !!props.invertTrend : null;
   const deltaColor = good === null ? colors.textSecondary : good ? colors.positive : colors.negative;
   const arrow = props.trend === 'up' ? '▲ ' : props.trend === 'down' ? '▼ ' : '';
@@ -41,7 +44,7 @@ export function Metric({ props }: NodeProps) {
         {String(props.label)}
       </Text>
       <Text
-        style={[styles.metricValue, { color: colors.text, fontSize: size, lineHeight: size * 1.2 }]}
+        style={[styles.metricValue, font, { color: resolveColor(props.color, theme) ?? colors.text, fontSize: size, lineHeight: size * 1.2 }]}
         numberOfLines={1}
         adjustsFontSizeToFit>
         {String(props.value)}
@@ -57,7 +60,8 @@ export function Metric({ props }: NodeProps) {
 }
 
 export function Progress({ props }: NodeProps) {
-  const colors = useTheme();
+  const theme = useUiTheme();
+  const colors = theme.colors;
   const value = Math.min(100, Math.max(0, Number(props.value) || 0));
   return (
     <View style={styles.progress}>
@@ -70,14 +74,14 @@ export function Progress({ props }: NodeProps) {
         </View>
       ) : null}
       <View style={[styles.track, { backgroundColor: colors.backgroundSelected }]}>
-        <View style={[styles.fill, { width: `${value}%`, backgroundColor: toneColor(colors, props.tone, 'accent') }]} />
+        <View style={[styles.fill, { width: `${value}%`, backgroundColor: colorOrTone(theme, props.color, props.tone, 'accent') }]} />
       </View>
     </View>
   );
 }
 
 export function List({ props, slot }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const items = slot('items');
   return (
     <View>
@@ -99,7 +103,7 @@ export function List({ props, slot }: NodeProps) {
 }
 
 export function ListItem({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const content = (
     <View style={styles.listItem}>
       {props.icon ? <AppIcon name={props.icon} size={18} color={colors.textSecondary} /> : null}
@@ -133,7 +137,7 @@ export function Timeline({ slot }: NodeProps) {
 }
 
 export function TimelineItem({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   return (
     <View style={styles.timelineItem}>
       <View style={styles.timelineRail}>
@@ -152,7 +156,7 @@ export function TimelineItem({ props }: NodeProps) {
 }
 
 export function KeyValue({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const items = Array.isArray(props.items) ? (props.items as { label: string; value: string }[]) : [];
   return (
     <View style={[styles.keyValue, { borderColor: colors.border }]}>
@@ -169,7 +173,7 @@ export function KeyValue({ props }: NodeProps) {
 }
 
 export function Source({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const host = String(props.url).replace(/^https:\/\//, '').split(/[/?#]/)[0];
   return (
     <Pressable onPress={() => openUrl(props.url)} accessibilityRole="link" style={styles.source}>
@@ -187,7 +191,7 @@ export function Source({ props }: NodeProps) {
 }
 
 export function SourceList({ props, slot }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   return (
     <View style={styles.sourceList}>
       {props.title ? (

@@ -10,16 +10,17 @@ import {
 import { z } from 'zod';
 
 import { ICON_NAMES } from './icons';
-import { component, slot, type CheckIssue, type ComponentSpec } from './spec';
+import { component, singleSlot, slot, type CheckIssue, type ComponentSpec } from './spec';
+import { ColorSchema, FontSchema, ThemeSchema, Tone } from './styles';
 
 // Shared prop schemas. Everything is a literal: strings, numbers, booleans, enums.
 
-export const Tone = z
-  .enum(['neutral', 'muted', 'accent', 'positive', 'negative', 'warning', 'info'])
-  .describe('Semantic color');
 export const Gap = z.enum(['none', 'xs', 'sm', 'md', 'lg']);
 export const Size = z.enum(['sm', 'md', 'lg']);
 export const IconNameSchema = z.enum(ICON_NAMES);
+const Align = z.enum(['start', 'center', 'end']).describe('Text alignment, default start');
+const color = ColorSchema.optional().describe('Overrides tone');
+const font = FontSchema.optional();
 
 const text = (max: number) => z.string().max(max);
 const label = text(80);
@@ -46,6 +47,10 @@ const series = z
 const Heading = component('Heading', 'Title text', {
   text: text(120),
   size: Size.optional().describe('Default md'),
+  color,
+  font,
+  align: Align.optional(),
+  uppercase: z.boolean().optional(),
 });
 
 const Text = component('Text', 'Body text. Plain text only; no markdown', {
@@ -54,17 +59,39 @@ const Text = component('Text', 'Body text. Plain text only; no markdown', {
   tone: Tone.optional(),
   weight: z.enum(['regular', 'medium', 'bold']).optional(),
   maxLines: z.number().int().min(1).max(20).optional(),
+  color,
+  font,
+  align: Align.optional(),
+  uppercase: z.boolean().optional(),
 });
 
 const Caption = component('Caption', 'Small secondary text such as dates or attributions', {
   text: text(200),
   tone: Tone.optional(),
+  color,
+  font,
+  align: Align.optional(),
+  uppercase: z.boolean().optional(),
 });
+
+const Display = component(
+  'Display',
+  'Big hero text: a temperature, price, score, date or a large emoji. Shrinks to fit one line',
+  {
+    text: text(40),
+    size: z.enum(['md', 'lg', 'xl', 'xxl']).optional().describe('32 / 44 / 60 / 84 pt, default lg'),
+    color,
+    font,
+    align: Align.optional(),
+    weight: z.enum(['regular', 'medium', 'bold']).optional().describe('Default bold'),
+  },
+);
 
 const Icon = component('Icon', 'Symbol from the fixed icon set', {
   name: IconNameSchema,
-  size: Size.optional(),
+  size: z.enum(['sm', 'md', 'lg', 'xl']).optional().describe('16 / 22 / 32 / 48 pt'),
   tone: Tone.optional(),
+  color,
 });
 
 const Image = component('Image', 'Remote image (https only)', {
@@ -77,6 +104,7 @@ const Image = component('Image', 'Remote image (https only)', {
 const Badge = component('Badge', 'Short pill label', {
   label: text(32),
   tone: Tone.optional(),
+  color,
 });
 
 const Metric = component('Metric', 'Key number with optional change indicator', {
@@ -86,12 +114,15 @@ const Metric = component('Metric', 'Key number with optional change indicator', 
   trend: z.enum(['up', 'down', 'flat']).optional(),
   invertTrend: z.boolean().optional().describe('true when "down" is good, e.g. prices you pay'),
   size: Size.optional(),
+  color: ColorSchema.optional().describe('Color of the value'),
+  font,
 });
 
 const Progress = component('Progress', 'Horizontal progress bar', {
   value: z.number().min(0).max(100).describe('Percent 0-100'),
   label: label.optional(),
   tone: Tone.optional(),
+  color,
 });
 
 const Divider = component('Divider', 'Thin separator line', {});
@@ -113,7 +144,49 @@ const Sparkline = component('Sparkline', 'Tiny trend line without axes', {
   values: numbers(2, 120),
   tone: Tone.optional(),
   height: Size.optional(),
+  color,
 });
+
+const Ring = component('Ring', 'Circular progress ring with text in the middle, like an activity ring', {
+  value: z.number().min(0).max(100).describe('Percent 0-100'),
+  label: text(12).optional().describe('Center text, e.g. "72%" or "8.2k"'),
+  caption: text(24).optional().describe('Small text under the center text'),
+  tone: Tone.optional(),
+  color,
+  size: Size.optional().describe('56 / 84 / 120 pt, default md'),
+});
+
+const Gauge = component(
+  'Gauge',
+  'Semicircle gauge for a value on a scale (speed, air quality, battery, score)',
+  {
+    value: z.number().finite(),
+    min: z.number().finite().optional().describe('Default 0'),
+    max: z.number().finite().optional().describe('Default 100'),
+    display: text(16).optional().describe('Center text; default is the value'),
+    label: text(40).optional().describe('Text under the gauge'),
+    tone: Tone.optional(),
+    color,
+  },
+  {
+    check: (props) => {
+      const min = typeof props.min === 'number' ? props.min : 0;
+      const max = typeof props.max === 'number' ? props.max : 100;
+      return min < max ? [] : [invalid('min must be smaller than max')];
+    },
+  },
+);
+
+const Heatmap = component(
+  'Heatmap',
+  'Grid of squares shaded by value, like a GitHub contribution graph. Values fill column by column (one column per week when rows is 7)',
+  {
+    values: z.array(z.number().finite().min(0)).min(1).max(371),
+    rows: z.number().int().min(1).max(7).optional().describe('Default 7'),
+    tone: Tone.optional(),
+    color,
+  },
+);
 
 const Link = component('Link', 'Tappable text link (https only)', {
   label: text(120),
@@ -344,10 +417,68 @@ const Table = component(
   },
 );
 
+// Backgrounds: one of these goes in the background argument of CardContainer, Page or Surface.
+
+const BACKGROUNDS = ['Fill', 'Gradient', 'RadialGradient', 'MeshGradient', 'BackgroundImage'] as const;
+const colors = (min: number, max: number) => z.array(ColorSchema).min(min).max(max);
+
+const backgroundSpecs: ComponentSpec[] = [
+  component('Fill', 'Solid background color', { color: ColorSchema }),
+  component('Gradient', 'Linear gradient background', {
+    colors: colors(2, 6),
+    angle: z.number().min(0).max(360).optional().describe('CSS degrees: 0 = to top, 90 = to right, 180 = to bottom; default 135'),
+  }),
+  component('RadialGradient', 'Radial glow; the first color is the center, the last fills the edges', {
+    colors: colors(2, 5),
+    x: z.number().min(0).max(1).optional().describe('Center 0-1 from the left, default 0.5'),
+    y: z.number().min(0).max(1).optional().describe('Center 0-1 from the top, default 0.5'),
+    radius: z.number().min(0.1).max(2).optional().describe('Relative to the size, default 0.8'),
+  }),
+  component(
+    'MeshGradient',
+    'Soft multi-color mesh (Apple-style blobs). 4 colors = 2x2 grid, 6 = 3 wide x 2 tall, 9 = 3x3; listed row by row from the top left',
+    { colors: colors(4, 9) },
+    {
+      check: (props) =>
+        Array.isArray(props.colors) && [4, 6, 9].includes(props.colors.length) ? [] : [invalid('colors must have 4, 6 or 9 entries')],
+    },
+  ),
+  component('BackgroundImage', 'Photo background (https only), darkened so text on it stays readable', {
+    url,
+    dim: z.number().min(0).max(0.9).optional().describe('Dark overlay 0-0.9, default 0.35'),
+    blur: z.number().min(0).max(40).optional().describe('Blur radius, default 0'),
+  }),
+];
+
+const background = singleSlot(BACKGROUNDS, 'One background element (Fill, Gradient, RadialGradient, MeshGradient or BackgroundImage)');
+
 // Layout components are built per surface because their slots accept that surface's content.
 
 function layout(content: readonly string[]): ComponentSpec[] {
   return [
+    component('Surface', 'Styled box with its own background, glass material, rounded corners, border and shadow', {
+      children: slot(content),
+      background,
+      material: z
+        .enum(['none', 'glass', 'blur', 'tint'])
+        .optional()
+        .describe('glass = frosted glass over what is behind, blur = stronger blur, tint = translucent layer'),
+      padding: Gap.optional().describe('Default md'),
+      radius: z.enum(['none', 'sm', 'md', 'lg', 'full']).optional().describe('Default md'),
+      gap: Gap.optional(),
+      align: z.enum(['start', 'center', 'end', 'stretch']).optional(),
+      border: ColorSchema.optional().describe('Hairline border color'),
+      shadow: z.enum(['none', 'sm', 'md', 'lg', 'glow']).optional().describe('glow uses the accent color'),
+      grow: z.boolean().optional().describe('Fill the remaining height (inside CardContainer) or share the width (inside Row)'),
+    }),
+    component('Layer', 'Stacks children on top of each other: the first child sets the size, the others are overlaid on it', {
+      children: slot(content, { min: 2, max: 6 }),
+      align: z
+        .enum(['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'])
+        .optional()
+        .describe('Where overlays sit, default center'),
+      padding: Gap.optional().describe('Inset of the overlays, default none'),
+    }),
     component('Stack', 'Vertical group', {
       children: slot(content),
       gap: Gap.optional(),
@@ -366,6 +497,12 @@ function layout(content: readonly string[]): ComponentSpec[] {
 const CARD_CONTENT = [
   'Stack',
   'Row',
+  'Surface',
+  'Layer',
+  'Display',
+  'Ring',
+  'Gauge',
+  'Heatmap',
   'Heading',
   'Text',
   'Caption',
@@ -388,6 +525,12 @@ const DETAIL_CONTENT = [
   'Section',
   'Stack',
   'Row',
+  'Surface',
+  'Layer',
+  'Display',
+  'Ring',
+  'Gauge',
+  'Heatmap',
   'Heading',
   'Text',
   'Caption',
@@ -435,11 +578,19 @@ export const cardSpecs: ComponentSpec[] = [
     children: slot(CARD_CONTENT, { max: 12 }),
     tone: Tone.optional().describe('Subtle background tint'),
     padding: z.enum(['none', 'sm', 'md']).optional(),
+    theme: ThemeSchema.optional(),
+    background,
+    justify: z.enum(['start', 'center', 'end', 'between']).optional().describe('Vertical distribution of the children, default start'),
   }),
   ...layout(CARD_CONTENT),
+  ...backgroundSpecs,
   Heading,
   Text,
   Caption,
+  Display,
+  Ring,
+  Gauge,
+  Heatmap,
   Icon,
   Image,
   Badge,
@@ -460,12 +611,15 @@ export const cardSpecs: ComponentSpec[] = [
 export const detailSpecs: ComponentSpec[] = [
   component(DETAIL_ROOT, 'Root of every detail screen; scrolls vertically', {
     children: slot(DETAIL_CONTENT, { max: 60 }),
+    theme: ThemeSchema.optional().describe('Colors the whole screen'),
+    background: singleSlot(BACKGROUNDS, 'Background of the whole screen'),
   }),
   component('Section', 'Titled group of content', {
     title: label,
     children: slot(NESTED_CONTENT),
   }),
   ...layout(NESTED_CONTENT),
+  ...backgroundSpecs,
   component('Tabs', 'Switches between panels; only the selected Tab is shown', {
     tabs: slot(['Tab'], { min: 2, max: 6 }),
   }),
@@ -484,6 +638,10 @@ export const detailSpecs: ComponentSpec[] = [
   Heading,
   Text,
   Caption,
+  Display,
+  Ring,
+  Gauge,
+  Heatmap,
   Quote,
   Icon,
   Image,

@@ -42,7 +42,7 @@ export type UiValidationResult =
   | { ok: true; tree: ElementNode; warnings: UiIssue[]; stats: UiStats }
   | { ok: false; errors: UiIssue[]; warnings: UiIssue[]; stats: UiStats | null };
 
-function utf8Length(value: string): number {
+export function utf8Length(value: string): number {
   let bytes = 0;
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i);
@@ -221,12 +221,13 @@ export function validateOpenUI(surface: UiSurface, source: string): UiValidation
         errors.push({ code: 'forbidden-syntax', path: slotPath, message: `${key} must be a literal list of components; expressions are not supported` });
         continue;
       }
-      if (!Array.isArray(value)) {
-        errors.push({ code: 'invalid-prop', path: slotPath, message: `${key} must be an array of components` });
+      if (def.single ? Array.isArray(value) : !Array.isArray(value)) {
+        const expected = def.single ? 'a single component, not an array' : 'an array of components';
+        errors.push({ code: 'invalid-prop', path: slotPath, message: `${key} must be ${expected}` });
         continue;
       }
-      const children = value.filter((child) => child !== null && child !== undefined);
-      if (children.length < def.min || children.length > def.max) {
+      const children = (def.single ? [value] : (value as unknown[])).filter((child) => child !== null && child !== undefined);
+      if (!def.single && (children.length < def.min || children.length > def.max)) {
         errors.push({
           code: 'invalid-prop',
           path: slotPath,

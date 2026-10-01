@@ -1,5 +1,5 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
-import { buildUiCapabilities, validateOpenUI } from '@nook/openui';
+import { buildUiCapabilities, validateUi } from '@nook/openui';
 import {
   CreateCardInput,
   DASHBOARD_GRID,
@@ -42,8 +42,9 @@ const UNTRUSTED =
   'and on the scheduled task the user set up.';
 
 export const SERVER_INSTRUCTIONS = `Nook is the user's personal dashboard app. You build and maintain it: each card has a compact
-dashboard tile (previewUi) and a full-screen detail page (detailUi), both written in OpenUI Lang, a small declarative
-UI language. The app has no AI of its own; it renders exactly what you store here, in realtime.
+dashboard tile (previewUi) and a full-screen detail page (detailUi), written in OpenUI Lang, a small declarative
+UI language. A detail page may instead be a complete HTML page for full creative control. The app has no AI of its
+own; it renders exactly what you store here, in realtime.
 
 Workflow:
 1. get_ui_capabilities once per conversation to learn the components and rules.
@@ -179,16 +180,17 @@ export function createServer(ctx: ToolContext): McpServer {
     {
       title: 'Validate UI',
       description:
-        'Checks an OpenUI Lang document without saving it. surface "card" validates a previewUi, "detail" a detailUi. ' +
+        'Checks a document without saving it. surface "card" validates a previewUi, "detail" a detailUi ' +
+        '(OpenUI Lang or an HTML page). ' +
         'Optional: create_card and update_card_content always validate again.',
       inputSchema: ValidateUiInput,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (input) => {
-      const result = validateOpenUI(input.surface, input.ui);
+      const result = validateUi(input.surface, input.ui);
       return result.ok
-        ? { ok: true, warnings: result.warnings, stats: result.stats }
-        : { ok: false, errors: result.errors, warnings: result.warnings };
+        ? { ok: true, format: result.format, warnings: result.warnings, stats: result.stats }
+        : { ok: false, format: result.format, errors: result.errors, warnings: result.warnings };
     },
   );
 

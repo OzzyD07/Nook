@@ -5,13 +5,13 @@ import { Pressable, StyleSheet, Text, TextInput as RNTextInput, View } from 'rea
 import { AppIcon } from '@/components/app-icon';
 import { strings } from '@/constants/strings';
 import { withAlpha } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { askAi } from '@/openui/ask-ai';
 import { openUrl } from '@/openui/open-url';
 import { useCardState } from '@/openui/state-context';
 import { TEXT_SIZE, toneColor } from '@/openui/tokens';
 import { propsOf, type NodeProps } from '@/openui/types';
 import { usePreferences } from '@/store/preferences';
+import { useUiColors } from '@/openui/ui-theme';
 
 const TEXT_SAVE_DELAY_MS = 600;
 
@@ -23,7 +23,7 @@ interface ChecklistItemProps {
 }
 
 export function Checklist({ props, nodes }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const { state, setField, interactive } = useCardState();
   const saved = state.fields[props.id]?.value;
   const ticks = saved && typeof saved === 'object' && !Array.isArray(saved) ? (saved as Record<string, boolean>) : {};
@@ -88,7 +88,7 @@ export function Checklist({ props, nodes }: NodeProps) {
 }
 
 export function TextInput({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const { state, setField, interactive } = useCardState();
   const stored = state.fields[props.id]?.value;
   const saved = typeof stored === 'string' ? stored : '';
@@ -133,7 +133,7 @@ export function TextInput({ props }: NodeProps) {
 }
 
 export function Choice({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const { state, setField, interactive } = useCardState();
   const stored = state.fields[props.id]?.value;
   const selected = Array.isArray(stored) ? stored : [];
@@ -177,7 +177,7 @@ export function Choice({ props }: NodeProps) {
 }
 
 export function Rating({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const { state, setField, interactive } = useCardState();
   const stored = state.fields[props.id]?.value;
   const value = typeof stored === 'number' ? stored : 0;
@@ -205,7 +205,7 @@ export function Rating({ props }: NodeProps) {
 }
 
 export function Button({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const { state, interactive, requestRefresh } = useCardState();
   const aiApp = usePreferences((preferences) => preferences.aiApp);
   const [copied, setCopied] = useState(false);
@@ -251,7 +251,7 @@ export function Button({ props }: NodeProps) {
 }
 
 export function Tabs({ nodes, slot }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const [index, setIndex] = useState(0);
   const labels = nodes('tabs').map((node) => String(node.props.label));
   const panels = slot('tabs');
@@ -284,7 +284,7 @@ export function Tab({ slot }: NodeProps) {
 }
 
 export function Accordion({ slot }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   return (
     <View style={[styles.group, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
       {slot('items').map((item, index) => (
@@ -297,7 +297,7 @@ export function Accordion({ slot }: NodeProps) {
 }
 
 export function AccordionItem({ props, slot }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const [open, setOpen] = useState(Boolean(props.open));
   return (
     <View>

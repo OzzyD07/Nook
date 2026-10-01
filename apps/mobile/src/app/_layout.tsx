@@ -8,6 +8,7 @@ import { strings } from '@/constants/strings';
 import { Colors } from '@/constants/theme';
 import { useResolvedScheme, useTheme } from '@/hooks/use-theme';
 import { isFirebaseConfigured } from '@/lib/env';
+import { useLoadUiFonts } from '@/openui/fonts';
 import { watchAuth } from '@/services/auth';
 import { syncCardState } from '@/services/card-state';
 import { syncCards } from '@/services/cards';
@@ -67,11 +68,15 @@ function AppStack() {
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       </Stack.Protected>
+      <Stack.Protected guard={__DEV__}>
+        <Stack.Screen name="gallery" />
+      </Stack.Protected>
     </Stack>
   );
 }
 
 export default function RootLayout() {
+  useLoadUiFonts();
   const scheme = useResolvedScheme();
   const colors = Colors[scheme];
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;

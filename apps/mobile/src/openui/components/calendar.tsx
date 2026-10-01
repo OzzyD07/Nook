@@ -5,10 +5,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { strings } from '@/constants/strings';
 import { withAlpha, type ThemeColors } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
 import { openUrl } from '@/openui/open-url';
 import { TEXT_SIZE, toneColor, type Tone } from '@/openui/tokens';
 import { propsOf, type NodeProps } from '@/openui/types';
+import { useUiColors } from '@/openui/ui-theme';
 
 interface CalendarEventProps {
   date: string;
@@ -67,7 +67,7 @@ function EventRow({ event, colors }: { event: CalendarEventProps; colors: ThemeC
 }
 
 export function Calendar({ props, nodes }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const today = localDateKey(useNow());
   const month = String(props.month);
   const events = eventsOf(nodes);
@@ -141,7 +141,7 @@ export function Calendar({ props, nodes }: NodeProps) {
 }
 
 export function Agenda({ props, nodes }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const today = localDateKey(useNow());
   const groups = groupByDate(eventsOf(nodes));
   const upcoming = groups.filter(([date]) => date >= today);
@@ -168,7 +168,7 @@ export function Agenda({ props, nodes }: NodeProps) {
 }
 
 export function WeekStrip({ props, nodes }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const today = localDateKey(useNow());
   const byDate = eventsByDate(eventsOf(nodes));
   const days = weekDates(typeof props.start === 'string' ? props.start : today);
@@ -193,7 +193,7 @@ export function WeekStrip({ props, nodes }: NodeProps) {
 }
 
 export function Countdown({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const now = useNow(1000);
   const target = Date.parse(String(props.target));
   const parts = countdownParts(target, now);

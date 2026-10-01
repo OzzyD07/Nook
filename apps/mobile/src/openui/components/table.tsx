@@ -1,12 +1,12 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useTheme } from '@/hooks/use-theme';
 import type { NodeProps } from '@/openui/types';
+import { useUiColors } from '@/openui/ui-theme';
 
 const MIN_COLUMN_WIDTH = 110;
 
 export function Table({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const columns: string[] = Array.isArray(props.columns) ? props.columns.map(String) : [];
   const rows: string[][] = Array.isArray(props.rows) ? props.rows.map((row: unknown[]) => row.map(String)) : [];
   // Narrow tables fill the width; wide ones scroll sideways.

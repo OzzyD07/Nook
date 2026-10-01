@@ -7,8 +7,9 @@ import { strings } from '@/constants/strings';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime, formatRelative } from '@/lib/time';
-import { OpenUIView } from '@/openui/OpenUIView';
+import { DetailView } from '@/openui/DetailView';
 import { openUrl } from '@/openui/open-url';
+import { PageBackdrop, usePageAppearance } from '@/openui/page-appearance';
 import { useCardStateStore } from '@/store/card-state';
 import { useDashboard } from '@/store/dashboard';
 
@@ -20,6 +21,7 @@ export default function CardDetailScreen() {
   const card = useDashboard((state) => state.cards[id]);
   const remoteRefresh = useCardStateStore((store) => store.remote[id]?.refreshRequestedAt ?? null);
   const pendingRefresh = useCardStateStore((store) => store.pending[id]?.refreshRequestedAt ?? null);
+  const appearance = usePageAppearance(card?.detailUi ?? '');
 
   if (!card || card.deletedAt !== null) {
     return (
@@ -34,33 +36,40 @@ export default function CardDetailScreen() {
   // The app lists structured sources unless the page already cites them inline.
   const showSources = card.sources.length > 0 && !/\bSourceList\s*\(/.test(card.detailUi);
   const automation = card.automation;
+  // A themed page also colors the chrome around it: header, sources and footer.
+  const chrome = appearance.colors ?? colors;
 
   return (
-    <>
-      <Stack.Screen options={{ title: card.title }} />
-      <ScrollView
-        style={{ backgroundColor: colors.background }}
-        contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="automatic">
+    <View style={[styles.screen, { backgroundColor: chrome.background }]}>
+      <Stack.Screen
+        options={{
+          title: card.title,
+          ...(appearance.colors
+            ? { headerStyle: { backgroundColor: chrome.background }, headerTintColor: chrome.text, headerTitleStyle: { color: chrome.text } }
+            : null),
+        }}
+      />
+      <PageBackdrop appearance={appearance} />
+      <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
         <View style={styles.inner}>
           {refreshRequested ? (
-            <Text style={[styles.meta, styles.requested, { color: colors.accent, borderColor: colors.accent }]}>
+            <Text style={[styles.meta, styles.requested, { color: chrome.accent, borderColor: chrome.accent }]}>
               {strings.card.refreshRequested}
             </Text>
           ) : null}
-          <OpenUIView surface="detail" source={card.detailUi} cardId={card.id} />
+          <DetailView source={card.detailUi} cardId={card.id} />
 
           {showSources ? (
             <View style={styles.block}>
-              <Text style={[styles.blockTitle, { color: colors.textSecondary }]}>{strings.card.sources.toUpperCase()}</Text>
+              <Text style={[styles.blockTitle, { color: chrome.textSecondary }]}>{strings.card.sources.toUpperCase()}</Text>
               {card.sources.map((source, index) => (
                 <Pressable key={index} onPress={() => openUrl(source.url)} style={styles.source} accessibilityRole="link">
-                  <AppIcon name="link" size={16} color={colors.accent} />
+                  <AppIcon name="link" size={16} color={chrome.accent} />
                   <View style={styles.grow}>
-                    <Text style={[styles.sourceTitle, { color: colors.text }]} numberOfLines={2}>
+                    <Text style={[styles.sourceTitle, { color: chrome.text }]} numberOfLines={2}>
                       {source.title}
                     </Text>
-                    <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
+                    <Text style={[styles.meta, { color: chrome.textSecondary }]} numberOfLines={1}>
                       {source.publisher ? `${source.publisher} · ` : ''}
                       {source.url.replace(/^https:\/\//, '').split(/[/?#]/)[0]}
                     </Text>
@@ -70,18 +79,18 @@ export default function CardDetailScreen() {
             </View>
           ) : null}
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            <Text style={[styles.meta, { color: colors.textSecondary }]}>
+          <View style={[styles.footer, { borderTopColor: chrome.border }]}>
+            <Text style={[styles.meta, { color: chrome.textSecondary }]}>
               {strings.card.updated} {formatRelative(card.updatedAt, now)} · {formatDateTime(card.updatedAt)} · v{card.version}
             </Text>
             {automation?.scheduleText || automation?.description ? (
-              <Text style={[styles.meta, { color: colors.textSecondary }]}>
+              <Text style={[styles.meta, { color: chrome.textSecondary }]}>
                 {strings.card.automation}: {[automation.scheduleText, automation.provider].filter(Boolean).join(' · ')}
                 {automation.description ? `\n${automation.description}` : ''}
               </Text>
             ) : null}
             {status !== 'active' ? (
-              <Text style={[styles.meta, { color: status === 'stale' ? colors.warning : colors.negative }]}>
+              <Text style={[styles.meta, { color: status === 'stale' ? chrome.warning : chrome.negative }]}>
                 {status === 'stale' ? strings.card.stale : strings.card.error}
                 {card.statusMessage ? ` — ${card.statusMessage}` : ''}
               </Text>
@@ -89,11 +98,12 @@ export default function CardDetailScreen() {
           </View>
         </View>
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 16, paddingBottom: 48, alignItems: 'center' },
   inner: { width: '100%', maxWidth: 720, gap: 24 },

@@ -1,4 +1,5 @@
 import { BarChart, LineChart, MiniBarChart, MiniLineChart, PieChart, Sparkline } from '@/openui/charts/charts';
+import { BackgroundImage, Fill, Gradient, MeshGradient, RadialGradient } from '@/openui/components/backgrounds';
 import { Agenda, Calendar, CalendarEvent, Countdown, WeekStrip } from '@/openui/components/calendar';
 import {
   Icon,
@@ -13,6 +14,7 @@ import {
   Timeline,
   TimelineItem,
 } from '@/openui/components/data';
+import { Gauge, Heatmap, Ring } from '@/openui/components/gauges';
 import {
   Accordion,
   AccordionItem,
@@ -25,9 +27,9 @@ import {
   Tabs,
   TextInput,
 } from '@/openui/components/interactive';
-import { CardContainer, Divider, Page, Row, Section, Stack } from '@/openui/components/layout';
+import { CardContainer, Divider, Layer, Page, Row, Section, Stack, Surface } from '@/openui/components/layout';
 import { Table } from '@/openui/components/table';
-import { Badge, Callout, Caption, Heading, Link, Quote, Text } from '@/openui/components/text';
+import { Badge, Callout, Caption, Display, Heading, Link, Quote, Text } from '@/openui/components/text';
 import type { NodeComponent } from '@/openui/types';
 
 /** Native implementation of every component in the card and detail libraries. */
@@ -37,10 +39,21 @@ export const registry: Record<string, NodeComponent> = {
   Section,
   Stack,
   Row,
+  Surface,
+  Layer,
   Divider,
+  Fill,
+  Gradient,
+  RadialGradient,
+  MeshGradient,
+  BackgroundImage,
   Heading,
   Text,
   Caption,
+  Display,
+  Ring,
+  Gauge,
+  Heatmap,
   Quote,
   Callout,
   Badge,

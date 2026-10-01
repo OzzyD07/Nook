@@ -70,6 +70,21 @@ describe('card user state', () => {
     expect(presented.refreshRequestedAt).toBe('2026-09-21T11:00:00.000Z');
   });
 
+  it('presents input saved by an HTML page under its declared fields', async () => {
+    await updateCardContent(ctx, {
+      cardId,
+      expectedVersion: 1,
+      previewUi: EXAMPLES.quoteCard,
+      detailUi: EXAMPLES.htmlDetail,
+      idempotencyKey: 'to-html',
+    });
+    seedState(fake, cardId, { fields: { 'sleep-note': { value: 'Slept well', updatedAt: new Date('2026-09-21T10:00:00Z') } } });
+    const presented = presentUserState(await getCard(ctx, cardId), await getCardState(ctx, cardId));
+    expect(presented.fields).toEqual([
+      { id: 'sleep-note', component: 'Html', value: 'Slept well', updatedAt: '2026-09-21T10:00:00.000Z' },
+    ]);
+  });
+
   it('keeps user input when the AI rewrites the card', async () => {
     seedState(fake, cardId, { fields: { groceries: { value: { milk: true }, updatedAt: new Date() } } });
     await updateCardContent(ctx, {

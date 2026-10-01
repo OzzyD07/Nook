@@ -17,6 +17,13 @@ describe('examples', () => {
     ['detail', EXAMPLES.metricDetail],
     ['detail', EXAMPLES.groceryDetail],
     ['detail', EXAMPLES.calendarDetail],
+    ['card', EXAMPLES.weatherCard],
+    ['card', EXAMPLES.photoCard],
+    ['card', EXAMPLES.ringCard],
+    ['card', EXAMPLES.focusCard],
+    ['card', EXAMPLES.gaugeCard],
+    ['detail', EXAMPLES.habitDetail],
+    ['detail', EXAMPLES.eventDetail],
   ] as const)('%s example validates', (surface, source) => {
     const result = validateOpenUI(surface, source);
     expect(result.ok ? [] : result.errors).toEqual([]);
@@ -99,13 +106,46 @@ describe('rejections', () => {
   });
 });
 
+describe('styling', () => {
+  it('accepts tones, hex colors and light/dark pairs', () => {
+    expect(codes('card', 'root = CardContainer([Text("x", null, null, null, null, "accent")])')).toEqual([]);
+    expect(codes('card', 'root = CardContainer([Text("x", null, null, null, null, "#FF8800")])')).toEqual([]);
+    expect(codes('card', 'root = CardContainer([Text("x", null, null, null, null, "#FF880080")])')).toEqual([]);
+    expect(codes('card', 'root = CardContainer([Text("x", null, null, null, null, {light: "#000000", dark: "#FFFFFF"})])')).toEqual([]);
+  });
+
+  it('rejects malformed colors, unknown themes and fonts', () => {
+    expect(codes('card', 'root = CardContainer([Text("x", null, null, null, null, "orange")])')).toContain('invalid-prop');
+    expect(codes('card', 'root = CardContainer([Text("x", null, null, null, null, "#F80")])')).toContain('invalid-prop');
+    expect(codes('card', 'root = CardContainer([Text("x")], null, null, "vaporwave")')).toContain('invalid-prop');
+    expect(codes('card', 'root = CardContainer([Heading("x", null, null, "comic-sans")])')).toContain('invalid-prop');
+  });
+
+  it('takes a single background element', () => {
+    expect(codes('card', 'root = CardContainer([Text("x")], null, null, null, Gradient(["#000000", "#FFFFFF"], 90))')).toEqual([]);
+    expect(codes('card', 'root = CardContainer([Text("x")], null, null, null, [Fill("#000000")])')).toContain('invalid-prop');
+    expect(codes('card', 'root = CardContainer([Text("x")], null, null, null, Text("y"))')).toContain('wrong-parent');
+    expect(codes('card', 'root = CardContainer([Fill("#000000")])')).toContain('wrong-parent');
+  });
+
+  it('checks mesh sizes and gauge ranges', () => {
+    expect(codes('card', 'root = CardContainer([Text("x")], null, null, null, MeshGradient(["#000000", "#111111", "#222222", "#333333", "#444444"]))')).toContain('invalid-prop');
+    expect(codes('card', 'root = CardContainer([Gauge(5, 10, 0)])')).toContain('invalid-prop');
+  });
+
+  it('accepts backgrounds on nested Surfaces and the detail Page', () => {
+    expect(codes('card', 'root = CardContainer([Surface([Text("x")], RadialGradient(["#FF0000", "#000000"]), "glass")])')).toEqual([]);
+    expect(codes('detail', 'root = Page([Text("x")], "ocean", BackgroundImage("https://example.com/a.jpg", 0.5, 10))')).toEqual([]);
+  });
+});
+
 describe('capabilities', () => {
   it('describes both surfaces with generated references', () => {
     const capabilities = buildUiCapabilities();
     expect(capabilities.surfaces.card.reference).toContain('CardContainer(');
     expect(capabilities.surfaces.detail.reference).toContain('Page(');
     expect(capabilities.surfaces.card.reference).not.toContain('Quote(');
-    expect(JSON.stringify(capabilities).length).toBeLessThan(40_000);
+    expect(JSON.stringify(capabilities).length).toBeLessThan(48_000);
   });
 });
 

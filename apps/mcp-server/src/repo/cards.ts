@@ -1,4 +1,4 @@
-import { validateOpenUI, type UiIssue } from '@nook/openui';
+import { validateUi, type UiIssue } from '@nook/openui';
 import {
   CardAutomationSchema,
   CardLayoutSchema,
@@ -104,7 +104,7 @@ function requireValidUi(previewUi: string, detailUi: string): void {
     ['previewUi', 'card', previewUi],
     ['detailUi', 'detail', detailUi],
   ] as const) {
-    const result = validateOpenUI(surface, source);
+    const result = validateUi(surface, source);
     if (!result.ok) failures.push({ field, surface, issues: result.errors });
   }
   if (failures.length > 0) {

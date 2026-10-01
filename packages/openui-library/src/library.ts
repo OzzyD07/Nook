@@ -47,8 +47,8 @@ function build(surface: UiSurface, root: string, specs: ComponentSpec[]): Surfac
             });
             const [first, ...rest] = refs;
             const item = rest.length === 0 ? first! : z.union([first!, ...rest]);
-            const array = z.array(item);
-            return def.optional ? array.optional() : array;
+            const value = def.single ? item : z.array(item);
+            return def.optional ? value.optional() : value;
           },
         });
       } else {

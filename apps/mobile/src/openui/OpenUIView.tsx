@@ -15,22 +15,26 @@ function isElement(value: unknown): value is ElementNode {
   return typeof value === 'object' && value !== null && (value as ElementNode).type === 'element';
 }
 
-function Node({ node }: { node: ElementNode }) {
+/** Renders one validated element and, through its slots, its children. */
+export function OpenUINode({ node }: { node: ElementNode }) {
   const Component = registry[node.typeName];
   if (!Component) return null;
+  // Single-element slots such as `background` hold the element itself instead of an array.
   const nodes = (key: string): ElementNode[] => {
     const value = node.props[key];
-    return Array.isArray(value) ? value.filter(isElement) : [];
+    if (Array.isArray(value)) return value.filter(isElement);
+    return isElement(value) ? [value] : [];
   };
   const slot = (key: string): RenderedChild[] =>
     nodes(key).map((child, index) => ({
       type: child.typeName,
-      element: <Node key={index} node={child} />,
+      element: <OpenUINode key={index} node={child} />,
     }));
   return <Component props={node.props} slot={slot} nodes={nodes} />;
 }
 
-function Unrenderable({ detail }: { detail?: string }) {
+/** Shown in place of a document that fails validation or throws while rendering. */
+export function Unrenderable({ detail }: { detail?: string }) {
   const colors = useTheme();
   return (
     <View style={styles.fallback}>
@@ -57,7 +61,7 @@ export function OpenUIView({ surface, source, cardId }: { surface: UiSurface; so
   }
   const tree = (
     <ErrorBoundary resetKey={source} fallback={<Unrenderable />}>
-      <Node node={result.tree} />
+      <OpenUINode node={result.tree} />
     </ErrorBoundary>
   );
   return cardId ? <CardStateProvider cardId={cardId}>{tree}</CardStateProvider> : tree;

@@ -83,6 +83,19 @@ describe('cards repository', () => {
     expect(fake.docs.size).toBe(0);
   });
 
+  it('accepts an HTML detail page but not an HTML tile', async () => {
+    const { cardId } = await createCard(ctx, { ...newCard(), detailUi: EXAMPLES.htmlDetail });
+    expect((await getCard(ctx, cardId)).detailUi).toBe(EXAMPLES.htmlDetail);
+    await expectCode(
+      createCard(ctx, { ...newCard(), previewUi: EXAMPLES.htmlDetail, idempotencyKey: 'html-tile' }),
+      'UI_INVALID',
+    );
+    await expectCode(
+      createCard(ctx, { ...newCard(), detailUi: '<!doctype html><html><body><iframe></iframe></body></html>', idempotencyKey: 'bad-html' }),
+      'UI_INVALID',
+    );
+  });
+
   it('updates preview, detail and sources together and bumps the version', async () => {
     const { cardId } = await createCard(ctx, newCard());
     const result = await updateCardContent(ctx, {

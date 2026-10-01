@@ -3,9 +3,9 @@ import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import { withAlpha, type ThemeColors } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { formatCompact, pick, seriesColor, toneColor, type Tone } from '@/openui/tokens';
 import type { NodeProps } from '@/openui/types';
+import { colorOrTone, useUiColors, useUiTheme } from '@/openui/ui-theme';
 
 interface Series {
   name: string;
@@ -54,11 +54,11 @@ function labelIndexes(count: number, max: number): number[] {
 const SPARK_HEIGHT = { sm: 24, md: 36, lg: 56 } as const;
 
 export function Sparkline({ props }: NodeProps) {
-  const colors = useTheme();
+  const theme = useUiTheme();
   const [width, onLayout] = useWidth();
   const values = numbers(props.values);
   const height = pick(SPARK_HEIGHT, props.height, 'md');
-  const color = toneColor(colors, props.tone, 'accent');
+  const color = colorOrTone(theme, props.color, props.tone, 'accent');
   const range = extent(values);
   const path = width > 0 && values.length > 1 ? linePath(values, 2, 2, width - 4, height - 4, range) : '';
   return (
@@ -88,7 +88,7 @@ function XLabels({ labels, colors }: { labels: string[]; colors: ThemeColors }) 
 }
 
 export function MiniLineChart({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const [width, onLayout] = useWidth();
   const values = numbers(props.values);
   const height = 64;
@@ -109,7 +109,7 @@ export function MiniLineChart({ props }: NodeProps) {
 }
 
 export function MiniBarChart({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const [width, onLayout] = useWidth();
   const values = numbers(props.values);
   const height = 64;
@@ -235,7 +235,7 @@ function Axes({
 }
 
 export function LineChart({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const [width, onLayout] = useWidth();
   const series = seriesOf(props.series);
   const labels: string[] = Array.isArray(props.labels) ? props.labels.map(String) : [];
@@ -265,7 +265,7 @@ export function LineChart({ props }: NodeProps) {
 }
 
 export function BarChart({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const [width, onLayout] = useWidth();
   const series = seriesOf(props.series);
   const labels: string[] = Array.isArray(props.labels) ? props.labels.map(String) : [];
@@ -313,7 +313,7 @@ function arc(cx: number, cy: number, r: number, start: number, end: number): str
 }
 
 export function PieChart({ props }: NodeProps) {
-  const colors = useTheme();
+  const colors = useUiColors();
   const slices: { label: string; value: number; tone?: Tone | null }[] = Array.isArray(props.slices)
     ? props.slices.filter((s: { value: unknown }) => typeof s?.value === 'number' && s.value >= 0)
     : [];
