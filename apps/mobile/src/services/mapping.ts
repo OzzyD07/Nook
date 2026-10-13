@@ -1,6 +1,7 @@
 import {
   CardAutomationSchema,
   CardLayoutSchema,
+  CardPageSchema,
   CardSourceSchema,
   type Card,
   type CardActor,
@@ -32,6 +33,14 @@ function sources(value: unknown) {
   });
 }
 
+function pages(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((page) => {
+    const parsed = CardPageSchema.safeParse(page);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 /** Tolerant conversion from a Firestore card document; returns null for unusable documents. */
 export function toCard(id: string, data: DocumentData): Card | null {
   const layout = CardLayoutSchema.safeParse(data.layout);
@@ -45,6 +54,7 @@ export function toCard(id: string, data: DocumentData): Card | null {
     layout: layout.data,
     previewUi: data.previewUi,
     detailUi: data.detailUi,
+    pages: pages(data.pages),
     sources: sources(data.sources),
     automation: automation?.success ? automation.data : null,
     status: data.status === 'error' ? 'error' : 'active',
@@ -65,6 +75,7 @@ export function toCardVersion(data: DocumentData): CardVersion {
     version: Number(data.version),
     previewUi: String(data.previewUi ?? ''),
     detailUi: String(data.detailUi ?? ''),
+    pages: pages(data.pages),
     sources: sources(data.sources),
     createdAt: millis(data.createdAt) ?? 0,
     createdBy: actor(data.createdBy),

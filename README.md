@@ -28,7 +28,7 @@ Expo app ── native OpenUI renderer, offline cache
 
 Cards are [OpenUI Lang](https://www.openui.com) documents limited to a static subset: only whitelisted components with literal arguments. The same validator runs on the Worker before anything is stored and on the device before anything is rendered.
 
-Cards can be styled freely within that subset: preset themes, gradient, mesh and photo backgrounds, glass surfaces, bundled fonts, rings, gauges and heatmaps. A detail page may instead be a complete HTML document (`<!doctype html>`), rendered in a sandboxed web view with a Content-Security-Policy that blocks network access except images, fonts and libraries from a few public CDNs. In development builds, `/gallery` previews every reference card.
+Cards can be styled freely within that subset: preset themes, gradient, mesh and photo backgrounds, glass surfaces, bundled fonts, rings, gauges and heatmaps. Detail pages are preferably complete HTML documents (`<!doctype html>`), rendered full screen in a sandboxed web view with a Content-Security-Policy that blocks network access except images, fonts and libraries from a few public CDNs. They can open sub-pages of the same card (`nook.openPage`) and, with the user's own Gemini API key set in Settings → Card AI, call a model through the Worker (`nook.ai.chat`). In development builds, `/gallery` previews every reference card.
 
 ## Development
 

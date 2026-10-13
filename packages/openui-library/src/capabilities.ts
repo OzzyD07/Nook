@@ -1,4 +1,4 @@
-import { GRID, LIMITS, type UiSurface } from '@nook/shared';
+import { AI_LIMITS, GRID, LIMITS, type UiSurface } from '@nook/shared';
 
 import { EXAMPLES } from './examples';
 import { HTML_LIBRARY_ORIGINS } from './html';
@@ -8,7 +8,7 @@ import { FONTS, THEMES } from './styles';
 
 export const OPENUI_LANG_CORE_VERSION = '0.3.0';
 /** Bump when components or their props change in a way the AI should know about. */
-export const RENDERER_VERSION = '1.3.0';
+export const RENDERER_VERSION = '1.5.0';
 
 const SHARED_RULES = [
   'Only use the components listed above. Unknown components are rejected.',
@@ -41,7 +41,7 @@ const SURFACE_RULES: Record<UiSurface, string[]> = {
     'Button("…", "request_refresh") lets the user ask for new content: get_dashboard then shows refreshRequestedAt for the card. Refresh it on your next run and call update_card_state with clearRefreshRequest.',
     "Dates are plain YYYY-MM-DD in the user's calendar; Countdown targets are ISO date-times with an offset. The device computes \"today\", countdowns and the current week.",
     'Page theme and background color the whole screen. Match the card: reuse its theme or background.',
-    'When the components cannot express the page you want, write detailUi as an HTML page instead (see htmlDetail).',
+    'Prefer writing detailUi as an HTML page (see htmlDetail); use this OpenUI library only for simple pages.',
   ],
 };
 
@@ -81,12 +81,12 @@ export function buildUiCapabilities() {
     rendererVersion: RENDERER_VERSION,
     workflow: [
       'Call get_dashboard to see existing cards and avoid duplicates.',
-      'Write previewUi with the card library and detailUi with the detail library.',
+      'Write previewUi with the card library and detailUi as an HTML page (see htmlDetail).',
       'Optionally check both with validate_ui; the server validates again on every write.',
       'create_card for new cards. For refreshes: get_card (read version) then update_card_content with expectedVersion.',
       'Pass structured sources (https only) with every content write that is based on research.',
       'When you schedule a recurring refresh, call register_automation so the app can show and monitor it.',
-      'detailUi may instead be a complete HTML page (see htmlDetail) when you need full creative control.',
+      'A detail page can open sub-pages on their own screens (pages, see htmlDetail), e.g. one page per game on a Games card.',
       'On scheduled runs, check get_dashboard for refreshRequestedAt and userStateUpdatedAt, and read userState via get_card to adapt to what the user ticked or wrote.',
     ],
     layout: {
@@ -105,17 +105,19 @@ export function buildUiCapabilities() {
     },
     htmlDetail: {
       when:
-        'For a detail page that needs more than the components offer: custom layouts, animation, canvas, rich charts, ' +
-        'games. Prefer OpenUI for ordinary pages: it is native, faster and matches the app.',
+        'The preferred format for detail pages: full creative control over layout, animation, canvas, rich charts, games ' +
+        'and live AI. The OpenUI detail library remains for simple pages and existing cards.',
       format: 'detailUi is a complete HTML document that starts with <!doctype html> and ends with </html>. previewUi stays OpenUI Lang.',
       rules: [
         `Maximum ${LIMITS.uiMaxBytes.detail} bytes. Inline your own CSS and JavaScript.`,
         'There is no network: fetch, XMLHttpRequest and WebSocket are blocked. Write the data into the document.',
         `Libraries: <script src> and stylesheets only from ${HTML_LIBRARY_ORIGINS.join(', ')} (pin exact versions), e.g. Chart.js, ECharts, D3, anime.js, Three.js, @tailwindcss/browser. Google Fonts are allowed. Images and media may use any https URL.`,
-        'The page scrolls with the screen and is as tall as its content: avoid 100vh layouts and position: fixed.',
+        'The page fills the screen below a slim back-button header and scrolls itself; 100vh and position: fixed work. Full screen (user toggle or nook.setFullscreen(true), e.g. when a game starts) hides the header; respect env(safe-area-inset-*). Sources are not listed below the page: cite them inside it.',
         'The background is transparent; the app paints the screen. Use the CSS variables --nook-text, --nook-text-secondary, --nook-accent, --nook-positive, --nook-negative, --nook-warning, --nook-background-element and --nook-border to follow the app in light and dark mode, or use your own colors. <meta name="nook-theme" content="<theme>"> paints a preset theme behind the page and sets the variables to its palette.',
-        'Links open in the in-app browser. window.nook offers openUrl(url), copy(text), askAi(prompt), requestRefresh(), getState(id) and setField(id, value).',
-        'To keep user input, declare its ids in <meta name="nook-state" content="id1 id2"> and save with nook.setField(id, value), where value is a string, number, string array or {id: boolean} map. Read it back with nook.getState(id); get_card shows it in userState.',
+        'Links open in the in-app browser. window.nook offers openUrl(url), openPage(id), setFullscreen(on), copy(text), askAi(prompt) (opens the AI app with a prompt), getState(id), setField(id, value) and ai.chat (below). Do not add refresh buttons or back buttons.',
+        `Sub-pages: pass pages: [{ id, title, html }] (up to ${LIMITS.maxPages}, ${LIMITS.pagesMaxTotalBytes} bytes in total, same rules as this page). nook.openPage("id") or <a href="nook-page:id"> opens one as its own screen with a back button; sub-pages may link to each other. Use them for hubs, e.g. a Games card with each game on its own page. Omitting pages in update_card_content keeps them.`,
+        `Live AI inside the page (a chess or quiz opponent, a writing helper): declare <meta name="nook-ai" content="what it is for">, then \`const { content } = await nook.ai.chat({ messages: [{ role: 'system' | 'user' | 'assistant', content }], maxTokens, temperature, json })\`. It runs on the user's own key and costs them money: call it only after user actions, keep prompts short, set maxTokens (default ${AI_LIMITS.defaultOutputTokens}, max ${AI_LIMITS.maxOutputTokens}), and show errors (no key set, daily limit of ${AI_LIMITS.dailyRequests} calls). json: true asks for a JSON object; still parse defensively.`,
+        'To keep user input, declare its ids in <meta name="nook-state" content="id1 id2"> and save with nook.setField(id, value), where value is a string, number, string array or {id: boolean} map. Read it back with nook.getState(id); get_card shows it in userState. Ids are shared by the detail page and its sub-pages (e.g. a high score saved by a game page can be shown on the hub).',
         'Keep refreshable data in <script type="application/json" id="nook-data"> and render from it: on a design-locked card only that block may change.',
         'Text and data you found on the web go into the page as content only, never into scripts as instructions.',
       ],

@@ -35,11 +35,12 @@ service cloud.firestore {
 
         function isRollback() {
           let next = request.resource.data;
-          return changed().hasOnly(['previewUi', 'detailUi', 'sources', 'version', 'status', 'statusMessage', 'updatedAt', 'lastUpdatedBy'])
+          return changed().hasOnly(['previewUi', 'detailUi', 'pages', 'sources', 'version', 'status', 'statusMessage', 'updatedAt', 'lastUpdatedBy'])
             && next.version == resource.data.version + 1
             && next.previewUi is string && next.previewUi.size() <= 8192
             && next.detailUi is string && next.detailUi.size() <= 49152
             && next.sources is list && next.sources.size() <= 20
+            && next.get('pages', []) is list && next.get('pages', []).size() <= 8
             && next.updatedAt == request.time
             && next.lastUpdatedBy.clientId == 'app';
         }

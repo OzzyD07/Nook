@@ -44,9 +44,9 @@ const UNTRUSTED =
   'and on the scheduled task the user set up.';
 
 export const SERVER_INSTRUCTIONS = `Nook is the user's personal dashboard app. You build and maintain it: each card has a compact
-dashboard tile (previewUi) and a full-screen detail page (detailUi), written in OpenUI Lang, a small declarative
-UI language. A detail page may instead be a complete HTML page for full creative control. The app has no AI of its
-own; it renders exactly what you store here, in realtime.
+dashboard tile (previewUi), written in OpenUI Lang, a small declarative UI language, and a full-screen detail
+page (detailUi), preferably a complete HTML page that may open sub-pages (pages) and call a model on the user's own
+key (nook.ai.chat). The app renders exactly what you store here, in realtime.
 
 Workflow:
 1. get_ui_capabilities once per conversation to learn the components and rules.
@@ -168,7 +168,7 @@ export function createServer(ctx: ToolContext): McpServer {
     {
       title: 'Get card',
       description:
-        'Returns one card including its current previewUi, detailUi, sources, version and userState (what the user ' +
+        'Returns one card including its current previewUi, detailUi, pages, sources, version and userState (what the user ' +
         'ticked, wrote, chose or rated on its interactive components). Call it right before update_card_content.',
       inputSchema: GetCardInput,
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -205,7 +205,8 @@ export function createServer(ctx: ToolContext): McpServer {
     {
       title: 'Create card',
       description:
-        'Adds a new card with its dashboard tile (previewUi) and detail page (detailUi). Both documents are validated. ' +
+        'Adds a new card with its dashboard tile (previewUi), detail page (detailUi) and optional sub-pages (pages). ' +
+        'Every document is validated. ' +
         `Retrying with the same idempotencyKey returns the first result instead of creating a duplicate. ${UNTRUSTED}`,
       inputSchema: CreateCardInput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -219,7 +220,8 @@ export function createServer(ctx: ToolContext): McpServer {
     {
       title: 'Update card content',
       description:
-        'Replaces a card\'s previewUi, detailUi and sources together, atomically. Pass the version from get_card as ' +
+        'Replaces a card\'s previewUi, detailUi, pages and sources together, atomically (omitted pages and sources are kept). ' +
+        'Pass the version from get_card as ' +
         'expectedVersion; if the card changed since, the call fails with VERSION_CONFLICT and nothing is written. ' +
         'On a card with designLocked: true only data may change; design changes fail with DESIGN_LOCKED. ' +
         `Scheduled refreshes should call get_card first, then this tool. ${UNTRUSTED}`,

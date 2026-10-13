@@ -74,6 +74,8 @@ export const ICONS = {
   gear: { ios: 'gearshape', material: 'settings' },
   lock: { ios: 'lock', material: 'lock' },
   unlock: { ios: 'lock.open', material: 'lock_open' },
+  expand: { ios: 'arrow.up.left.and.arrow.down.right', material: 'open_in_full' },
+  collapse: { ios: 'arrow.down.right.and.arrow.up.left', material: 'close_fullscreen' },
 } as const;
 
 export type IconName = keyof typeof ICONS;

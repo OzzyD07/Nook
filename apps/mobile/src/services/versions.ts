@@ -42,6 +42,7 @@ export async function restoreVersion(uid: string, cardId: string, target: CardVe
     tx.update(cardRef, {
       previewUi: target.previewUi,
       detailUi: target.detailUi,
+      pages: target.pages,
       sources: target.sources,
       version,
       status: 'active',
@@ -54,6 +55,7 @@ export async function restoreVersion(uid: string, cardId: string, target: CardVe
       version,
       previewUi: target.previewUi,
       detailUi: target.detailUi,
+      pages: target.pages,
       sources: target.sources,
       createdAt: serverTimestamp(),
       createdBy: APP_ACTOR,

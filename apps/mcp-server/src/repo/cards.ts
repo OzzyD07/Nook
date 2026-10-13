@@ -1,13 +1,15 @@
-import { designChanges, validateUi, type DesignChange, type UiIssue } from '@nook/openui';
+import { designChanges, isHtmlDocument, validateHtml, validateUi, type DesignChange, type UiIssue } from '@nook/openui';
 import {
   CardAutomationSchema,
   CardLayoutSchema,
+  CardPageSchema,
   CardSourceSchema,
   deriveStatus,
   LIMITS,
   NookError,
   type Card,
   type CardActor,
+  type CardPage,
   type CreateCardInput,
   type DeleteCardInput,
   type LockCardDesignInput,
@@ -27,6 +29,14 @@ import { runIdempotent } from './idempotency';
 
 const millis = (value: unknown): number | null => (value instanceof Date ? value.getTime() : null);
 
+function toPages(value: unknown): CardPage[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((page) => {
+    const parsed = CardPageSchema.safeParse(page);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 function toCard(doc: StoredDocument): Card {
   const data = doc.data;
   const automation = CardAutomationSchema.safeParse(data.automation);
@@ -37,6 +47,7 @@ function toCard(doc: StoredDocument): Card {
     layout: CardLayoutSchema.parse(data.layout),
     previewUi: String(data.previewUi ?? ''),
     detailUi: String(data.detailUi ?? ''),
+    pages: toPages(data.pages),
     sources: Array.isArray(data.sources)
       ? data.sources.flatMap((source) => {
           const parsed = CardSourceSchema.safeParse(source);
@@ -69,6 +80,7 @@ export function presentCard(card: Card, now: number) {
     version: card.version,
     previewUi: card.previewUi,
     detailUi: card.detailUi,
+    pages: card.pages,
     sources: card.sources,
     automation: card.automation,
     designLocked: card.designLocked,
@@ -86,16 +98,35 @@ function requireUnlocked(card: Card, action: string): void {
   }
 }
 
+/** Design differences between the current sub-pages and proposed ones, keyed by field. */
+function pageChanges(before: CardPage[], after: CardPage[]): Record<string, DesignChange[]> {
+  const changes: Record<string, DesignChange[]> = {};
+  const ids = (pages: CardPage[]) => pages.map((page) => page.id).join(',');
+  if (ids(before) !== ids(after)) {
+    changes.pages = [{ path: '', message: `The sub-pages changed from [${ids(before)}] to [${ids(after)}]` }];
+    return changes;
+  }
+  before.forEach((page, index) => {
+    const next = after[index]!;
+    const found = designChanges('detail', page.html, next.html);
+    if (page.title !== next.title) found.unshift({ path: 'title', message: `The title changed from "${page.title}" to "${next.title}"` });
+    if (found.length) changes[`pages.${page.id}`] = found;
+  });
+  return changes;
+}
+
 /** On a locked card, content updates may change data only; see designChanges(). */
-function requireSameDesign(card: Card, previewUi: string, detailUi: string): void {
+function requireSameDesign(card: Card, previewUi: string, detailUi: string, pages: CardPage[]): void {
   if (!card.designLocked) return;
   const changes: Record<string, DesignChange[]> = {};
   const preview = designChanges('card', card.previewUi, previewUi);
   const detail = designChanges('detail', card.detailUi, detailUi);
   if (preview.length) changes.previewUi = preview;
   if (detail.length) changes.detailUi = detail;
-  if (!preview.length && !detail.length) return;
-  const listed = [...preview.map((c) => ['previewUi', c] as const), ...detail.map((c) => ['detailUi', c] as const)]
+  Object.assign(changes, pageChanges(card.pages, pages));
+  if (Object.keys(changes).length === 0) return;
+  const listed = Object.entries(changes)
+    .flatMap(([field, list]) => list.map((change) => [field, change] as const))
     .slice(0, 12)
     .map(([field, change]) => `- ${field} ${change.path}: ${change.message}`)
     .join('\n');
@@ -103,7 +134,7 @@ function requireSameDesign(card: Card, previewUi: string, detailUi: string): voi
     'DESIGN_LOCKED',
     `The user locked the design of card "${card.id}". You may update its data (text, numbers, value lists, links, images, ` +
       `icon names) but the design must stay exactly as it is. Design changes found:\n${listed}\n\n` +
-      `Start from the current previewUi and detailUi in get_card and change only the data. ${UNLOCK_HINT}`,
+      `Start from the current previewUi, detailUi and pages in get_card and change only the data. ${UNLOCK_HINT}`,
     { changes },
   );
 }
@@ -132,20 +163,55 @@ function formatIssues(issues: UiIssue[]): string {
     .join('\n');
 }
 
-/** Server-side validation of both documents; mandatory regardless of validate_ui calls. */
-function requireValidUi(previewUi: string, detailUi: string): void {
-  const failures: { field: string; surface: UiSurface; issues: UiIssue[] }[] = [];
+/** Server-side validation of every document; mandatory regardless of validate_ui calls. */
+function requireValidUi(previewUi: string, detailUi: string, pages: CardPage[]): void {
+  const failures: { field: string; kind: string; issues: UiIssue[] }[] = [];
+  const kinds: Record<UiSurface, string> = { card: 'card document', detail: 'detail document' };
   for (const [field, surface, source] of [
     ['previewUi', 'card', previewUi],
     ['detailUi', 'detail', detailUi],
   ] as const) {
     const result = validateUi(surface, source);
-    if (!result.ok) failures.push({ field, surface, issues: result.errors });
+    if (!result.ok) failures.push({ field, kind: kinds[surface], issues: result.errors });
   }
+
+  // Sub-pages are HTML only, and every page link must point at one of them.
+  const issue = (code: UiIssue['code'], message: string): UiIssue[] => [{ code, path: '', message }];
+  const links = new Map<string, string>();
+  const collectLinks = (field: string, source: string) => {
+    if (!isHtmlDocument(source)) return;
+    for (const id of validateHtml(source).stats?.pageLinks ?? []) if (!links.has(id)) links.set(id, field);
+  };
+  collectLinks('detailUi', detailUi);
+  const ids = new Set<string>();
+  let bytes = 0;
+  for (const page of pages) {
+    const field = `pages.${page.id}`;
+    bytes += new TextEncoder().encode(page.html).length;
+    if (ids.has(page.id)) failures.push({ field, kind: 'sub-page', issues: issue('duplicate-id', 'Page id used twice') });
+    ids.add(page.id);
+    if (!isHtmlDocument(page.html)) {
+      failures.push({ field, kind: 'sub-page', issues: issue('parse-error', 'Sub-pages must be HTML pages starting with <!doctype html>') });
+      continue;
+    }
+    const result = validateHtml(page.html);
+    if (!result.ok) failures.push({ field, kind: 'sub-page', issues: result.errors });
+    collectLinks(field, page.html);
+  }
+  if (bytes > LIMITS.pagesMaxTotalBytes) {
+    failures.push({ field: 'pages', kind: 'set of sub-pages', issues: issue('too-large', `Sub-pages total ${bytes} bytes; the limit is ${LIMITS.pagesMaxTotalBytes}`) });
+  }
+  if (pages.length > 0 && !isHtmlDocument(detailUi)) {
+    failures.push({ field: 'pages', kind: 'set of sub-pages', issues: issue('invalid-prop', 'Only an HTML detailUi can open sub-pages') });
+  }
+  for (const [id, field] of links) {
+    if (!ids.has(id)) failures.push({ field, kind: 'page', issues: issue('invalid-prop', `Links to sub-page "${id}", which is not in pages`) });
+  }
+
   if (failures.length > 0) {
     throw new NookError(
       'UI_INVALID',
-      failures.map((f) => `${f.field} is not a valid ${f.surface} document:\n${formatIssues(f.issues)}`).join('\n\n') +
+      failures.map((f) => `${f.field} is not a valid ${f.kind}:\n${formatIssues(f.issues)}`).join('\n\n') +
         '\n\nCall get_ui_capabilities for the component reference.',
       { issues: Object.fromEntries(failures.map((f) => [f.field, f.issues])) },
     );
@@ -156,7 +222,12 @@ function actor(ctx: ToolContext): CardActor {
   return { clientId: ctx.clientId, clientName: ctx.clientName };
 }
 
-function versionWrite(ctx: ToolContext, cardId: string, version: number, content: Pick<Card, 'previewUi' | 'detailUi' | 'sources'>): Write {
+function versionWrite(
+  ctx: ToolContext,
+  cardId: string,
+  version: number,
+  content: Pick<Card, 'previewUi' | 'detailUi' | 'pages' | 'sources'>,
+): Write {
   return ctx.db.set(
     ctx.paths.cardVersion(cardId, version),
     {
@@ -164,6 +235,7 @@ function versionWrite(ctx: ToolContext, cardId: string, version: number, content
       version,
       previewUi: content.previewUi,
       detailUi: content.detailUi,
+      pages: content.pages,
       sources: content.sources,
       createdAt: ctx.now(),
       createdBy: actor(ctx),
@@ -192,7 +264,8 @@ const conflict = (cardId: string) => () =>
   new NookError('VERSION_CONFLICT', `Card "${cardId}" changed while this request was being applied. Call get_card and retry with the new version.`);
 
 export async function createCard(ctx: ToolContext, input: CreateCardInput) {
-  requireValidUi(input.previewUi, input.detailUi);
+  const pages = input.pages ?? [];
+  requireValidUi(input.previewUi, input.detailUi, pages);
   return runIdempotent(
     ctx,
     'create_card',
@@ -215,6 +288,7 @@ export async function createCard(ctx: ToolContext, input: CreateCardInput) {
               layout: { columnSpan: input.layout.columnSpan, rowSpan: input.layout.rowSpan, order },
               previewUi: input.previewUi,
               detailUi: input.detailUi,
+              pages,
               sources,
               automation: input.automation ?? null,
               status: 'active',
@@ -228,7 +302,7 @@ export async function createCard(ctx: ToolContext, input: CreateCardInput) {
             },
             { exists: false },
           ),
-          versionWrite(ctx, id, 1, { previewUi: input.previewUi, detailUi: input.detailUi, sources }),
+          versionWrite(ctx, id, 1, { previewUi: input.previewUi, detailUi: input.detailUi, pages, sources }),
           auditWrite(ctx, 'create_card', id, 'success'),
         ],
         result: { cardId: id, version: 1, layout: { columnSpan: input.layout.columnSpan, rowSpan: input.layout.rowSpan, order } },
@@ -239,14 +313,17 @@ export async function createCard(ctx: ToolContext, input: CreateCardInput) {
 }
 
 export async function updateCardContent(ctx: ToolContext, input: UpdateCardContentInput) {
-  requireValidUi(input.previewUi, input.detailUi);
+  if (input.pages) requireValidUi(input.previewUi, input.detailUi, input.pages);
   const result = await runIdempotent(
     ctx,
     'update_card_content',
     input,
     async () => {
       const { card, doc } = await loadCard(ctx, input.cardId);
-      requireSameDesign(card, input.previewUi, input.detailUi);
+      const pages = input.pages ?? card.pages;
+      // Kept pages are checked against the new detailUi too: it must still be able to open them.
+      if (!input.pages) requireValidUi(input.previewUi, input.detailUi, pages);
+      requireSameDesign(card, input.previewUi, input.detailUi, pages);
       if (card.version !== input.expectedVersion) {
         throw new NookError(
           'VERSION_CONFLICT',
@@ -265,6 +342,7 @@ export async function updateCardContent(ctx: ToolContext, input: UpdateCardConte
             {
               previewUi: input.previewUi,
               detailUi: input.detailUi,
+              pages,
               sources,
               version,
               updatedAt: now,
@@ -272,10 +350,10 @@ export async function updateCardContent(ctx: ToolContext, input: UpdateCardConte
               statusMessage: null,
               lastUpdatedBy: actor(ctx),
             },
-            ['previewUi', 'detailUi', 'sources', 'version', 'updatedAt', 'status', 'statusMessage', 'lastUpdatedBy'],
+            ['previewUi', 'detailUi', 'pages', 'sources', 'version', 'updatedAt', 'status', 'statusMessage', 'lastUpdatedBy'],
             { updateTime: doc.updateTime },
           ),
-          versionWrite(ctx, card.id, version, { previewUi: input.previewUi, detailUi: input.detailUi, sources }),
+          versionWrite(ctx, card.id, version, { previewUi: input.previewUi, detailUi: input.detailUi, pages, sources }),
           auditWrite(ctx, 'update_card_content', card.id, 'success'),
         ],
         result: { cardId: card.id, version, updatedAt: now.toISOString() },

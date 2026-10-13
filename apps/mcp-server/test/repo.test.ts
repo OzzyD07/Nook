@@ -224,3 +224,43 @@ describe('cards repository', () => {
     expect(() => userPaths('user1').card('a/b')).toThrow();
   });
 });
+
+describe('card sub-pages', () => {
+  let ctx: ToolContext;
+  const html = (body: string) => `<!doctype html>\n<html><head><title>x</title></head><body>${body}</body></html>`;
+  const hub = html('<a href="nook-page:chess">Chess</a><button onclick="nook.openPage(\'quiz\')">Quiz</button>');
+  const pages = [
+    { id: 'chess', title: 'Chess', html: html('<p>Board</p>') },
+    { id: 'quiz', title: 'Quiz', html: html('<p>Question</p>') },
+  ];
+
+  beforeEach(() => {
+    ctx = context(new FakeFirestore());
+  });
+
+  it('stores sub-pages with the card and keeps them when an update omits them', async () => {
+    const { cardId } = await createCard(ctx, { ...newCard(), detailUi: hub, pages });
+    expect((await getCard(ctx, cardId)).pages).toEqual(pages);
+    await updateCardContent(ctx, { cardId, expectedVersion: 1, previewUi: EXAMPLES.newsCard, detailUi: hub, idempotencyKey: 'keep-pages' });
+    expect((await getCard(ctx, cardId)).pages).toEqual(pages);
+  });
+
+  it('rejects links to missing pages, non-HTML pages and pages under an OpenUI detail', async () => {
+    await expectCode(createCard(ctx, { ...newCard('missing'), detailUi: hub, pages: [pages[0]!] }), 'UI_INVALID');
+    await expectCode(
+      createCard(ctx, { ...newCard('openui-page'), detailUi: hub, pages: [pages[0]!, { ...pages[1]!, html: EXAMPLES.newsDetail }] }),
+      'UI_INVALID',
+    );
+    await expectCode(createCard(ctx, { ...newCard('openui-detail'), pages }), 'UI_INVALID');
+  });
+
+  it('protects sub-page designs on locked cards', async () => {
+    const { cardId } = await createCard(ctx, { ...newCard(), detailUi: hub, pages });
+    await lockCardDesign(ctx, { cardId, idempotencyKey: 'lock-pages' });
+    const restyled = [pages[0]!, { ...pages[1]!, html: html('<h1>New layout</h1>') }];
+    await expectCode(
+      updateCardContent(ctx, { cardId, expectedVersion: 1, previewUi: EXAMPLES.newsCard, detailUi: hub, pages: restyled, idempotencyKey: 'restyle-pages' }),
+      'DESIGN_LOCKED',
+    );
+  });
+});

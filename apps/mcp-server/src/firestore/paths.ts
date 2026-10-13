@@ -21,6 +21,8 @@ export function userPaths(uid: string) {
     cardState: (cardId: string) => `${root}/cardState/${segment(cardId, ID, 'card id')}`,
     idempotency: (id: string) => `${root}/idempotency/${segment(id, ID, 'idempotency id')}`,
     auditLog: (id: string) => `${root}/auditLogs/${segment(id, ID, 'audit id')}`,
+    /** Server-only: the encrypted AI provider key and model. No security rule exposes it. */
+    aiSettings: `${root}/private/ai`,
   };
 }
 

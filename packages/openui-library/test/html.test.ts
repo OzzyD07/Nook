@@ -83,3 +83,19 @@ describe('html detail pages', () => {
     expect(HTML_CONTENT_SECURITY_POLICY).toContain("default-src 'none'");
   });
 });
+
+describe('html pages with AI', () => {
+  it('records a nook-ai declaration and requires it before calling nook.ai', () => {
+    const declared = validateHtml(page('<meta name="nook-ai" content="chess opponent">', '<script>nook.ai.chat({ messages: [] })</script>'));
+    expect(declared.ok && declared.stats.ai).toBe(true);
+    const undeclared = validateHtml(page('', '<script>nook.ai.chat({ messages: [] })</script>'));
+    expect(!undeclared.ok && undeclared.errors.map((error) => error.path)).toContain('nook-ai');
+    expect(validateHtml(page('<title>x</title>')).stats?.ai).toBe(false);
+  });
+
+  it('exposes nook.ai.chat in the bridge', () => {
+    const built = buildHtmlPage(page(''), { scheme: 'dark', colors: THEMES.noir.colors, state: {} });
+    expect(built).toContain("chat: function (options) { return request('aiChat', options); }");
+    expect(built).toContain('__nookReceive');
+  });
+});

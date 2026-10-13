@@ -171,6 +171,10 @@ export default function SettingsScreen() {
         ))}
       </SettingsSection>
 
+      <SettingsSection title={strings.settings.cardAi}>
+        <SettingsRow first label={strings.ai.title} chevron onPress={() => router.push('/settings/ai')} />
+      </SettingsSection>
+
       <SettingsSection title={strings.settings.automation}>
         {automated.length ? (
           automated.map((card, index) => {

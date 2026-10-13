@@ -43,6 +43,8 @@ npx wrangler deploy
 
 The deploy prints the Worker URL, e.g. `https://nook-mcp.<account>.workers.dev`. Put it (without `/mcp`) into `EXPO_PUBLIC_MCP_BASE_URL` in `apps/mobile/.env`.
 
+Card AI (optional): to let card pages call a model (a chess opponent, a quiz master), add your [Gemini API key](https://aistudio.google.com/apikey) in the app under Settings → Card AI. The Worker stores it in `users/{uid}/private/ai`, encrypted with a key derived from `STATE_SIGNING_KEY` (changing that secret means entering the AI key again), and limits calls per day. Set a spending cap for the key in Google AI Studio as well.
+
 `ALLOWED_UIDS` is strongly recommended: without it, anyone who can create an account in your Firebase project could connect an AI to their own (separate) dashboard on your Worker. Find your uid in Firebase console → Authentication after signing up in the app.
 
 For local development copy `.dev.vars.example` to `.dev.vars` and run `npm run dev -w @nook/mcp-server`.

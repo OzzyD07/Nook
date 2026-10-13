@@ -4,6 +4,7 @@ import {
   CardAutomationSchema,
   CardIdSchema,
   CardLayoutSchema,
+  CardPageSchema,
   CardSourceSchema,
   StoredCardStatusSchema,
   type CardAutomation,
@@ -32,8 +33,15 @@ const DetailUiSchema = z
   .string()
   .min(1)
   .describe(
-    'Full-screen detail page: an OpenUI Lang document using the Detail component library, or a complete HTML page ' +
-      'starting with <!doctype html> (see htmlDetail in get_ui_capabilities)',
+    'Full-screen detail page: preferably a complete HTML page starting with <!doctype html> (see htmlDetail in ' +
+      'get_ui_capabilities), or an OpenUI Lang document using the Detail component library',
+  );
+const PagesSchema = z
+  .array(CardPageSchema)
+  .max(LIMITS.maxPages)
+  .describe(
+    'Sub-pages of an HTML detail page, each opened on its own screen with nook.openPage("id") or <a href="nook-page:id"> ' +
+      '(e.g. one page per game on a "Games" card). Omit to keep the current pages; pass [] to remove them',
   );
 
 export const GetCardInput = z.object({ cardId: CardIdSchema });
@@ -50,6 +58,7 @@ export const CreateCardInput = z.object({
   }),
   previewUi: PreviewUiSchema,
   detailUi: DetailUiSchema,
+  pages: PagesSchema.optional(),
   sources: SourcesSchema.optional(),
   automation: CardAutomationSchema.optional(),
   idempotencyKey: IdempotencyKeySchema,
@@ -74,6 +83,7 @@ export const UpdateCardContentInput = z.object({
     .describe('The card version you read with get_card. The update is rejected if it changed since'),
   previewUi: PreviewUiSchema,
   detailUi: DetailUiSchema,
+  pages: PagesSchema.optional(),
   sources: SourcesSchema.optional(),
   idempotencyKey: IdempotencyKeySchema,
 });

@@ -1,9 +1,16 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
 
+import { AiChatRequestSchema, AiSettingsInput } from '@nook/shared';
+
+import { aiChat, AiError, deleteAiKey, getAiStatus, saveAiSettings, type AiContext } from './ai/service';
 import { showAuthorize, submitAuthorize } from './auth/authorize';
 import { verifyFirebaseIdToken } from './auth/firebase';
 import { SERVER_VERSION, type Env } from './env';
+import { Firestore } from './firestore/client';
+import { userPaths } from './firestore/paths';
+import { serviceAccountToken } from './firestore/token';
 
 type AppEnv = { Bindings: Env; Variables: { uid: string } };
 
@@ -17,7 +24,7 @@ app.get('/authorize', (c) => showAuthorize(c.req.raw, c.env));
 app.post('/authorize', (c) => submitAuthorize(c.req.raw, c.env));
 
 // API used by the Nook app itself, authenticated with the user's Firebase ID token.
-app.use('/api/*', cors({ origin: '*', allowHeaders: ['authorization', 'content-type'], allowMethods: ['GET', 'DELETE'] }));
+app.use('/api/*', cors({ origin: '*', allowHeaders: ['authorization', 'content-type'], allowMethods: ['GET', 'PUT', 'POST', 'DELETE'] }));
 app.use('/api/*', async (c, next) => {
   const token = c.req.header('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) return c.json({ error: 'Missing token' }, 401);
@@ -64,4 +71,45 @@ app.delete('/api/connections', async (c) => {
   const grants = await listGrants(c.env, uid);
   await Promise.all(grants.map((grant) => c.env.OAUTH_PROVIDER.revokeGrant(grant.id, uid)));
   return c.json({ ok: true, revoked: grants.length });
+});
+
+// Card AI: the user's Gemini key stays here; the app and its pages only see answers.
+
+function aiContext(env: Env, uid: string): AiContext {
+  return {
+    uid,
+    db: new Firestore({
+      projectId: env.FIREBASE_PROJECT_ID,
+      getToken: () => serviceAccountToken(env.GCP_SA_JSON),
+      emulatorHost: env.FIRESTORE_EMULATOR_HOST,
+    }),
+    paths: userPaths(uid),
+    secret: env.STATE_SIGNING_KEY,
+    usage: env.OAUTH_KV,
+    fetch: (input, init) => fetch(input, init),
+    now: () => new Date(),
+  };
+}
+
+app.onError((error, c) => {
+  if (error instanceof AiError) return c.json({ error: error.message }, error.status);
+  if (error instanceof HTTPException) return error.getResponse();
+  console.error(error);
+  return c.json({ error: 'Internal error' }, 500);
+});
+
+app.get('/api/ai', async (c) => c.json(await getAiStatus(aiContext(c.env, c.get('uid')))));
+
+app.put('/api/ai', async (c) => {
+  const input = AiSettingsInput.safeParse(await c.req.json().catch(() => null));
+  if (!input.success) return c.json({ error: input.error.issues[0]?.message ?? 'Invalid input' }, 400);
+  return c.json(await saveAiSettings(aiContext(c.env, c.get('uid')), input.data));
+});
+
+app.delete('/api/ai/key', async (c) => c.json(await deleteAiKey(aiContext(c.env, c.get('uid')))));
+
+app.post('/api/ai/chat', async (c) => {
+  const input = AiChatRequestSchema.safeParse(await c.req.json().catch(() => null));
+  if (!input.success) return c.json({ error: input.error.issues[0]?.message ?? 'Invalid input' }, 400);
+  return c.json(await aiChat(aiContext(c.env, c.get('uid')), input.data));
 });

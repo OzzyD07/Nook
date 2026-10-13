@@ -60,8 +60,14 @@ function AppStack() {
     <Stack screenOptions={{ headerShadowVisible: false, headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="index" options={{ title: strings.appName }} />
-        <Stack.Screen name="card/[id]" options={{ title: '' }} />
+        <Stack.Screen name="card/[id]/index" options={{ title: '' }} />
+        <Stack.Screen name="card/[id]/page/[page]" options={{ title: '' }} />
+        <Stack.Screen
+          name="card/[id]/info"
+          options={{ title: strings.card.info, presentation: 'formSheet', sheetAllowedDetents: [0.5, 1], sheetGrabberVisible: true, headerShown: false }}
+        />
         <Stack.Screen name="settings/index" options={{ title: strings.settings.title }} />
+        <Stack.Screen name="settings/ai" options={{ title: strings.ai.title }} />
         <Stack.Screen name="settings/advanced" options={{ title: strings.advanced.title }} />
         <Stack.Screen name="settings/card-versions/[id]" options={{ title: strings.versions.title }} />
       </Stack.Protected>

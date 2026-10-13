@@ -1,4 +1,4 @@
-import { CARD_STATE_LIMITS, LIMITS, STATE_ID_PATTERN } from '@nook/shared';
+import { CARD_STATE_LIMITS, LIMITS, PAGE_ID_PATTERN, STATE_ID_PATTERN } from '@nook/shared';
 
 import { THEMES, type ThemeName, type ThemePalette } from './styles';
 import { utf8Length, type UiIssue, type UiStateField } from './validate';
@@ -62,6 +62,10 @@ export interface HtmlStats {
   stateFields: UiStateField[];
   /** Preset theme from <meta name="nook-theme">, applied to the screen around the page. */
   theme: ThemeName | null;
+  /** Declared <meta name="nook-ai">: the page may call nook.ai.chat on the user's key. */
+  ai: boolean;
+  /** Sub-pages the page opens with nook.openPage("id") or <a href="nook-page:id">. */
+  pageLinks: string[];
 }
 
 export type HtmlValidationResult =
@@ -144,7 +148,23 @@ export function validateHtml(source: string): HtmlValidationResult {
     else errors.push({ code: 'invalid-prop', path: 'nook-theme', message: `Unknown theme "${themeName}"; use one of ${Object.keys(THEMES).join(', ')}` });
   }
 
-  const stats: HtmlStats = { bytes, stateFields, theme };
+  const ai = metaContent(source, 'nook-ai') !== null;
+  if (!ai && /\bnook\s*\.\s*ai\b/.test(source)) {
+    errors.push({
+      code: 'invalid-prop',
+      path: 'nook-ai',
+      message: 'The page calls nook.ai: declare <meta name="nook-ai" content="what the AI does here"> in <head>',
+    });
+  }
+
+  const pageLinks = new Set<string>();
+  for (const match of source.matchAll(/\bopenPage\s*\(\s*["'`]([^"'`]*)["'`]|\bnook-page:([^"'\s>]*)/g)) {
+    const id = match[1] ?? match[2] ?? '';
+    if (PAGE_ID_PATTERN.test(id)) pageLinks.add(id);
+    else errors.push({ code: 'invalid-prop', path: 'nook-page', message: `"${id}" is not a valid page id (a-z, 0-9, _ or -, up to 40)` });
+  }
+
+  const stats: HtmlStats = { bytes, stateFields, theme, ai, pageLinks: [...pageLinks] };
   return errors.length > 0 ? { ok: false, errors, warnings, stats } : { ok: true, warnings, stats };
 }
 
@@ -166,8 +186,9 @@ function scriptJson(value: unknown): string {
 const cssVar = (name: string) => `--nook-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 
 /**
- * Runs before the page's own scripts: exposes window.nook, routes link taps to the app
- * and reports the content height so the page can scroll with the rest of the screen.
+ * Runs before the page's own scripts: exposes window.nook, routes link taps to the app,
+ * answers request/response calls (nook.ai.chat) through window.__nookReceive and reports
+ * the content height for previews that embed the page in a scroll view.
  */
 const BRIDGE = `(function () {
   var data = __NOOK_DATA__;
@@ -176,21 +197,48 @@ const BRIDGE = `(function () {
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(text);
     else if (window.parent !== window) window.parent.postMessage({ nook: text }, '*');
   };
+  var pending = {};
+  var counter = 0;
+  var request = function (type, payload) {
+    return new Promise(function (resolve, reject) {
+      var id = String(++counter);
+      pending[id] = { resolve: resolve, reject: reject };
+      post({ type: type, requestId: id, payload: payload === undefined ? null : payload });
+    });
+  };
+  window.__nookReceive = function (reply) {
+    var entry = reply && pending[reply.requestId];
+    if (!entry) return;
+    delete pending[reply.requestId];
+    if (reply.ok) entry.resolve(reply.value);
+    else entry.reject(new Error(String(reply.error || 'Request failed')));
+  };
+  window.addEventListener('message', function (event) {
+    if (event.source === window.parent && event.data && event.data.nookReply) window.__nookReceive(event.data.nookReply);
+  });
   var state = data.state;
   window.nook = Object.freeze({
     theme: Object.freeze(data.theme),
     getState: function (id) { return id === undefined ? JSON.parse(JSON.stringify(state)) : state[id]; },
     setField: function (id, value) { state[id] = value; post({ type: 'setField', id: String(id), value: value }); },
     openUrl: function (url) { post({ type: 'openUrl', url: String(url) }); },
+    openPage: function (id) { post({ type: 'openPage', id: String(id) }); },
+    setFullscreen: function (on) { post({ type: 'fullscreen', value: on !== false }); },
     copy: function (text) { post({ type: 'copy', text: String(text) }); },
     requestRefresh: function () { post({ type: 'requestRefresh' }); },
-    askAi: function (prompt) { post({ type: 'askAi', prompt: String(prompt) }); }
+    askAi: function (prompt) { post({ type: 'askAi', prompt: String(prompt) }); },
+    ai: Object.freeze({
+      chat: function (options) { return request('aiChat', options); }
+    })
   });
   document.addEventListener('click', function (event) {
     var link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-    if (!link || (link.getAttribute('href') || '').charAt(0) === '#') return;
+    if (!link) return;
+    var href = link.getAttribute('href') || '';
+    if (href.charAt(0) === '#') return;
     event.preventDefault();
-    post({ type: 'openUrl', url: link.href });
+    if (href.indexOf('nook-page:') === 0) post({ type: 'openPage', id: href.slice(10) });
+    else post({ type: 'openUrl', url: link.href });
   }, true);
   var last = 0;
   var report = function () {

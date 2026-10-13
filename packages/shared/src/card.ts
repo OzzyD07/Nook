@@ -36,6 +36,20 @@ export const CardSourceSchema = z.object({
 });
 export type CardSource = z.infer<typeof CardSourceSchema>;
 
+/** Ids of sub-pages, used in nook.openPage("id") and <a href="nook-page:id">. */
+export const PAGE_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+
+/**
+ * A sub-page of a card: a complete HTML page the detail page (or another sub-page)
+ * opens on its own screen, e.g. one game of a "Games" card.
+ */
+export const CardPageSchema = z.object({
+  id: z.string().regex(PAGE_ID_PATTERN, 'Page ids are 1-40 characters of a-z, 0-9, _ or -'),
+  title: z.string().trim().min(1).max(LIMITS.titleMaxLength).describe('Shown in the header of the sub-page'),
+  html: z.string().min(1).describe('A complete HTML page starting with <!doctype html>, same rules as an HTML detailUi'),
+});
+export type CardPage = z.infer<typeof CardPageSchema>;
+
 export const CadenceUnitSchema = z.enum(['hour', 'day', 'week']);
 export type CadenceUnit = z.infer<typeof CadenceUnitSchema>;
 
@@ -83,6 +97,8 @@ export interface Card {
   layout: CardLayout;
   previewUi: string;
   detailUi: string;
+  /** Sub-pages the HTML detail page opens; empty for most cards. */
+  pages: CardPage[];
   sources: CardSource[];
   automation: CardAutomation | null;
   status: StoredCardStatus;
@@ -107,6 +123,7 @@ export interface CardVersion {
   version: number;
   previewUi: string;
   detailUi: string;
+  pages: CardPage[];
   sources: CardSource[];
   createdAt: number;
   createdBy: CardActor | null;

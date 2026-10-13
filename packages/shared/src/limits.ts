@@ -7,6 +7,9 @@ export const LIMITS = {
   statusMessageMaxLength: 280,
   /** Maximum UTF-8 size of an OpenUI document, per surface. */
   uiMaxBytes: { card: 8 * 1024, detail: 48 * 1024 },
+  /** Sub-pages a card's HTML detail page can open, and their combined UTF-8 size. */
+  maxPages: 8,
+  pagesMaxTotalBytes: 320 * 1024,
   /** Maximum element nesting depth, per surface. */
   uiMaxDepth: { card: 8, detail: 12 },
   /** Maximum number of element nodes, per surface. */
