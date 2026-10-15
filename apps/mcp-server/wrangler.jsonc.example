@@ -1,0 +1,27 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "nook-mcp",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-09-21",
+	// Required by OAuth Client ID Metadata Documents (CIMD) support.
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"kv_namespaces": [
+		// Create with: npx wrangler kv namespace create OAUTH_KV, then paste the id here.
+		{
+			"binding": "OAUTH_KV",
+			"id": "your-kv-namespace-id"
+		}
+	],
+	"vars": {
+		"FIREBASE_PROJECT_ID": "your-firebase-project-id",
+		"FIREBASE_WEB_API_KEY": "your-firebase-web-api-key",
+		"PUBLIC_BASE_URL": ""
+	}
+	// Secrets (npx wrangler secret put <NAME>): GCP_SA_JSON, STATE_SIGNING_KEY, and optionally ALLOWED_UIDS.
+}

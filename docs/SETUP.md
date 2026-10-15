@@ -1,6 +1,6 @@
 # Setup
 
-Nook needs three things you own: a Firebase project (auth + data), a Cloudflare Worker (the MCP server your AI connects to) and a development build of the app. Everything fits in the free tiers for personal use.
+Nook is self-hosted: there is no shared server. Each person runs their own backend and builds their own app. You need three things you own: a Firebase project (auth + data), a Cloudflare Worker (the MCP server your AI connects to) and a development build of the app. Everything fits in the free tiers for personal use.
 
 All commands run from the repository root unless noted. Set `OPENUI_TELEMETRY_DISABLED=1` in your shell before `npm install` to turn off the install-time telemetry of `@openuidev/lang-core`.
 
@@ -22,11 +22,12 @@ All commands run from the repository root unless noted. Set `OPENUI_TELEMETRY_DI
 
 ```bash
 cd apps/mcp-server
+cp wrangler.jsonc.example wrangler.jsonc   # personal config, git-ignored
 npx wrangler login
 npx wrangler kv namespace create OAUTH_KV
 ```
 
-Edit `apps/mcp-server/wrangler.jsonc`:
+Edit your `apps/mcp-server/wrangler.jsonc` (it is git-ignored, so your values never reach the repository):
 
 - `kv_namespaces[0].id`: the id printed by the command above.
 - `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY`: from the Firebase web config.
@@ -57,11 +58,19 @@ The app uses Firebase's JS SDK, so it also runs on the web for quick checks:
 npm run web -w nook-mobile
 ```
 
-Phones need a development build (Expo Go is not required):
+Create your personal app config first (git-ignored) and set your own bundle identifier in `ios.bundleIdentifier` and `android.package`:
 
 ```bash
 cd apps/mobile
+cp app.json.example app.json
+cp .env.example .env              # then fill in the Firebase and Worker values
+```
+
+Phones need a development build (Expo Go is not required):
+
+```bash
 npx eas-cli@latest login
+npx eas-cli@latest init           # links the app to your own EAS project and writes its id to app.json
 npx eas-cli@latest build --profile development --platform android   # or ios
 ```
 

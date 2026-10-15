@@ -52,3 +52,7 @@ example
 .claude/
 CLAUDE.md
 AGENTS.md
+
+# personal configuration (copy from the *.example files)
+apps/mcp-server/wrangler.jsonc
+apps/mobile/app.json

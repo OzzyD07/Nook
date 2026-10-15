@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Nook",
+    "slug": "Nook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "nook",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.example.nook"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#05163B",
+        "foregroundImage": "./assets/images/android-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.example.nook"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#05163B",
+          "image": "./assets/images/icon.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}
